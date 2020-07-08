@@ -35,6 +35,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 
 public class AtlasHiveHookContext {
@@ -158,6 +159,18 @@ public class AtlasHiveHookContext {
             knownObjects.removeFromKnownTable(tblQualifiedName);
         }
     }
+
+    public boolean getFilterEnabledFlag() {
+        return hook.getSourceFilterFlagEnabled();
+    }
+
+    // This method checks if database for which event was triggered is a part of databases defined in source database list
+    public boolean getValidEntityFlag(String databaseName) {
+        Set<String> validList = hook.getValidHiveEntityList();
+        boolean validFlag = validList.contains(databaseName);
+        return validFlag;
+    }
+
 
     private void init() {
         if (knownObjects != null) {

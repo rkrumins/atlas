@@ -97,7 +97,13 @@ public class AlterTableRenameCol extends AlterTable {
             newColumn.setAttribute(ATTRIBUTE_NAME, changedColumnNew.getName());
             newColumn.setAttribute(ATTRIBUTE_QUALIFIED_NAME, getQualifiedName(newTable, changedColumnNew));
 
-            ret.add(0, new EntityPartialUpdateRequestV2(getUserName(), oldColumnId, new AtlasEntityWithExtInfo(newColumn)));
+            if (context.getFilterEnabledFlag()) {
+                if (context.getValidEntityFlag(oldTable.getDbName()) || context.getValidEntityFlag(newTable.getDbName())) {
+                    ret.add(0, new EntityPartialUpdateRequestV2(getUserName(), oldColumnId, new AtlasEntityWithExtInfo(newColumn)));
+                }
+            } else {
+                ret.add(0, new EntityPartialUpdateRequestV2(getUserName(), oldColumnId, new AtlasEntityWithExtInfo(newColumn)));
+            }
         } else {
             LOG.error("AlterTableRenameCol: no renamed column detected");
         }

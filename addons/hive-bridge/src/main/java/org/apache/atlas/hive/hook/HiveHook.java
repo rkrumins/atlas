@@ -23,6 +23,7 @@ import org.apache.atlas.hook.AtlasHook;
 import org.apache.atlas.model.instance.AtlasEntity;
 import org.apache.atlas.utils.LruCache;
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.hive.ql.hooks.ExecuteWithHookContext;
 import org.apache.hadoop.hive.ql.hooks.HookContext;
@@ -33,6 +34,8 @@ import org.apache.hadoop.security.UserGroupInformation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -68,6 +71,10 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
     public static final String HOOK_HIVE_TABLE_CACHE_SIZE                                = CONF_PREFIX + "hive_table.cache.size";
 
     public static final String DEFAULT_CLUSTER_NAME = "primary";
+
+    public static final String HOOK_HIVE_FILTER_ENABLED_FLAG = CONF_PREFIX + "filter.enabled";
+    public static final String HOOK_HIVE_FILTER_FILE_LOCATION = CONF_PREFIX + "filter.file.location";
+    public static final String HOOK_HIVE_FILTER_FILE_NAME = CONF_PREFIX + "filter.file.name";
 
     private static final Map<String, HiveOperation> OPERATION_MAP = new HashMap<>();
 
@@ -240,7 +247,6 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
 
             if (event != null) {
                 final UserGroupInformation ugi = hookContext.getUgi() == null ? Utils.getUGI() : hookContext.getUgi();
-
                 super.notifyEntities(event.getNotificationMessages(), ugi);
             }
         } catch (Throwable t) {
@@ -381,5 +387,28 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
                 knownTables.remove(tblQualifiedName);
             }
         }
+    }
+
+    // Get filter enabled flag, if not present, then disabled by default
+    protected boolean getSourceFilterFlagEnabled() {
+        return atlasProperties.getBoolean(HOOK_HIVE_FILTER_ENABLED_FLAG, false);
+    }
+
+    protected List<String> loadConfigFile(String fileName) {
+        File configFile = new File(fileName);
+        List<String> validEntityList = null;
+        try {
+            validEntityList = FileUtils.readLines(configFile);
+            validEntityList.forEach(String::toLowerCase);
+        } catch (IOException e) {
+            LOG.error("Issue occurred when parsing source entity list");
+            e.printStackTrace();
+        }
+        return validEntityList;
+    }
+
+    public Set<String> getValidHiveEntityList() {
+        String fileName = atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION) + File.separator + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME);
+        return new HashSet<String>(loadConfigFile(fileName));
     }
 }

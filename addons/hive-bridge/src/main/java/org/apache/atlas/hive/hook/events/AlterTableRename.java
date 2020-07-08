@@ -93,7 +93,13 @@ public class AlterTableRename extends BaseHiveEvent {
         }
 
         // first update with oldTable info, so that the table will be created if it is not present in Atlas
-        ret.add(new EntityUpdateRequestV2(getUserName(), new AtlasEntitiesWithExtInfo(oldTableEntity)));
+        if (context.getFilterEnabledFlag()) {
+            if (context.getValidEntityFlag(oldTable.getDbName())) {
+                ret.add(new EntityUpdateRequestV2(getUserName(), new AtlasEntitiesWithExtInfo(oldTableEntity)));
+            }
+        } else {
+            ret.add(new EntityUpdateRequestV2(getUserName(), new AtlasEntitiesWithExtInfo(oldTableEntity)));
+        }
 
         // update qualifiedName for all columns, partitionKeys, storageDesc
         String renamedTableQualifiedName = (String) renamedTableEntity.getEntity().getAttribute(ATTRIBUTE_QUALIFIED_NAME);
@@ -113,7 +119,13 @@ public class AlterTableRename extends BaseHiveEvent {
         AtlasObjectId oldTableId = new AtlasObjectId(oldTableEntity.getEntity().getTypeName(), ATTRIBUTE_QUALIFIED_NAME, oldTableEntity.getEntity().getAttribute(ATTRIBUTE_QUALIFIED_NAME));
 
         // update qualifiedName and other attributes (like params - which include lastModifiedTime, lastModifiedBy) of the table
-        ret.add(new EntityPartialUpdateRequestV2(getUserName(), oldTableId, renamedTableEntity));
+        if (context.getFilterEnabledFlag()) {
+            if (context.getValidEntityFlag(newTable.getDbName())) {
+                ret.add(new EntityPartialUpdateRequestV2(getUserName(), oldTableId, renamedTableEntity));
+            }
+        } else {
+            ret.add(new EntityPartialUpdateRequestV2(getUserName(), oldTableId, renamedTableEntity));
+        }
 
         context.removeFromKnownTable((String) oldTableEntity.getEntity().getAttribute(ATTRIBUTE_QUALIFIED_NAME));
 

@@ -80,13 +80,18 @@ public class CreateTable extends BaseHiveEvent {
 
         if (table != null) {
             AtlasEntity tblEntity = toTableEntity(table, ret);
-
             if (tblEntity != null && TableType.EXTERNAL_TABLE.equals(table.getTableType())) {
                 AtlasEntity hdfsPathEntity = getHDFSPathEntity(table.getDataLocation());
                 AtlasEntity processEntity  = getHiveProcessEntity(Collections.singletonList(hdfsPathEntity), Collections.singletonList(tblEntity));
-
-                ret.addEntity(processEntity);
-                ret.addReferredEntity(hdfsPathEntity);
+                if (context.getFilterEnabledFlag()) {
+                    if (context.getValidEntityFlag(table.getDbName().toLowerCase())) {
+                        ret.addEntity(processEntity);
+                        ret.addReferredEntity(hdfsPathEntity);
+                    }
+                } else {
+                    ret.addEntity(processEntity);
+                    ret.addReferredEntity(hdfsPathEntity);
+                }
             }
         }
 

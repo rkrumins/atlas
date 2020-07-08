@@ -66,8 +66,13 @@ public class CreateDatabase extends BaseHiveEvent {
 
                 if (db != null) {
                     AtlasEntity dbEntity = toDbEntity(db);
-
-                    ret.addEntity(dbEntity);
+                    if (context.getFilterEnabledFlag()) {
+                        if (context.getValidEntityFlag(db.getName().toLowerCase())) {
+                            ret.addEntity(dbEntity);
+                        }
+                    } else {
+                        ret.addEntity(dbEntity);
+                    }
                 } else {
                     LOG.error("CreateDatabase.getEntities(): failed to retrieve db");
                 }

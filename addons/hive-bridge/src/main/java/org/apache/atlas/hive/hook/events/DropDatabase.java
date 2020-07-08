@@ -55,19 +55,34 @@ public class DropDatabase extends BaseHiveEvent {
 
         for (Entity entity : getHiveContext().getOutputs()) {
             if (entity.getType() == Entity.Type.DATABASE) {
+                String dbName = entity.getDatabase().getName();
                 String        dbQName = getQualifiedName(entity.getDatabase());
                 AtlasObjectId dbId    = new AtlasObjectId(HIVE_TYPE_DB, ATTRIBUTE_QUALIFIED_NAME, dbQName);
 
-                context.removeFromKnownDatabase(dbQName);
-
-                ret.add(dbId);
+                if (context.getFilterEnabledFlag()) {
+                    if (context.getValidEntityFlag(dbName)) {
+                        context.removeFromKnownDatabase(dbQName);
+                        ret.add(dbId);
+                    }
+                } else {
+                    context.removeFromKnownDatabase(dbQName);
+                    ret.add(dbId);
+                }
             } else if (entity.getType() == Entity.Type.TABLE) {
+                String dbName = entity.getTable().getDbName();
                 String        tblQName = getQualifiedName(entity.getTable());
                 AtlasObjectId dbId     = new AtlasObjectId(HIVE_TYPE_TABLE, ATTRIBUTE_QUALIFIED_NAME, tblQName);
 
-                context.removeFromKnownTable(tblQName);
+                if (context.getFilterEnabledFlag()) {
+                    if (context.getValidEntityFlag(dbName)) {
+                        context.removeFromKnownTable(tblQName);
+                        ret.add(dbId);
+                    }
+                } else {
+                    context.removeFromKnownTable(tblQName);
+                    ret.add(dbId);
+                }
 
-                ret.add(dbId);
             }
         }
 
