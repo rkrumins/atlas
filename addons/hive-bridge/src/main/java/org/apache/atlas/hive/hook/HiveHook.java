@@ -45,8 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.List;
-import java.util.ArrayList;
 import static org.apache.atlas.hive.hook.events.BaseHiveEvent.ATTRIBUTE_QUALIFIED_NAME;
 import static org.apache.atlas.hive.hook.events.BaseHiveEvent.HIVE_TYPE_DB;
 import static org.apache.atlas.hive.hook.events.BaseHiveEvent.HIVE_TYPE_TABLE;
@@ -390,12 +388,13 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
     }
 
     // Get filter enabled flag, if not present, then disabled by default
-    protected boolean getSourceFilterFlagEnabled() {
+    public boolean getSourceFilterFlagEnabled() {
+        boolean flag = atlasProperties.getBoolean(HOOK_HIVE_FILTER_ENABLED_FLAG);
         return atlasProperties.getBoolean(HOOK_HIVE_FILTER_ENABLED_FLAG, false);
     }
 
-    protected List<String> loadConfigFile(String fileName) {
-        File configFile = new File(fileName);
+    public List<String> loadSourcesConfigFile(String filePath) {
+        File configFile = new File(filePath);
         List<String> validEntityList = null;
         try {
             validEntityList = FileUtils.readLines(configFile);
@@ -408,7 +407,7 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
     }
 
     public Set<String> getValidHiveEntityList() {
-        String fileName = atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION) + File.separator + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME);
-        return new HashSet<String>(loadConfigFile(fileName));
+        String sourceConfigFilePath = atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION) + File.separator + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME);
+        return new HashSet<String>(loadSourcesConfigFile(sourceConfigFilePath));
     }
 }
