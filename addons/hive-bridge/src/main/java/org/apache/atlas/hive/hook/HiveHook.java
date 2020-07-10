@@ -389,16 +389,17 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
 
     // Get filter enabled flag, if not present, then disabled by default
     public boolean getSourceFilterFlagEnabled() {
-        boolean flag = atlasProperties.getBoolean(HOOK_HIVE_FILTER_ENABLED_FLAG);
         return atlasProperties.getBoolean(HOOK_HIVE_FILTER_ENABLED_FLAG, false);
     }
 
     public List<String> loadSourcesConfigFile(String filePath) {
+        LOG.info("Loading source config file");
         File configFile = new File(filePath);
         List<String> validEntityList = null;
         try {
             validEntityList = FileUtils.readLines(configFile);
             validEntityList.forEach(String::toLowerCase);
+            LOG.info("Loaded source config file successfully from path: " + filePath);
         } catch (IOException e) {
             LOG.error("Issue occurred when parsing source entity list");
             e.printStackTrace();
@@ -407,6 +408,8 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
     }
 
     public Set<String> getValidHiveEntityList() {
+        LOG.info("Source entity file location: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION));
+        LOG.info("Source entity filename: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME));
         String sourceConfigFilePath = atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION) + File.separator + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME);
         return new HashSet<String>(loadSourcesConfigFile(sourceConfigFilePath));
     }
