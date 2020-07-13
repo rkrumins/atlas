@@ -24,12 +24,16 @@ import org.apache.atlas.notification.hook.HookNotification.EntityDeleteRequestV2
 import org.apache.atlas.notification.hook.HookNotification.HookNotificationMessage;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.hadoop.hive.ql.hooks.Entity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 public class DropTable extends BaseHiveEvent {
+    private static final Logger LOG = LoggerFactory.getLogger(DropTable.class);
+
     public DropTable(AtlasHiveHookContext context) {
         super(context);
     }
@@ -60,11 +64,16 @@ public class DropTable extends BaseHiveEvent {
                 AtlasObjectId dbId     = new AtlasObjectId(HIVE_TYPE_TABLE, ATTRIBUTE_QUALIFIED_NAME, tblQName);
 
                 if (context.getFilterEnabledFlag()) {
+                    LOG.info("DropTable event in HiveHook: Filter flag is enabled");
                     if (context.getValidEntityFlag(dbName)) {
+                        LOG.info("DropTable event in HiveHook: valid entity detected with name " + dbName);
                         context.removeFromKnownTable(tblQName);
                         ret.add(dbId);
+                    } else {
+                        LOG.info("DropTable event in HiveHook: valid entity detected with name " + dbName);
                     }
                 } else {
+                    LOG.info("DropTable event in HiveHook: Filter flag is disabled");
                     context.removeFromKnownTable(tblQName);
                     ret.add(dbId);
                 }

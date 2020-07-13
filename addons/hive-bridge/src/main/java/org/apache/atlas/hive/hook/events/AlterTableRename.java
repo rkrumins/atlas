@@ -120,10 +120,13 @@ public class AlterTableRename extends BaseHiveEvent {
 
         // update qualifiedName and other attributes (like params - which include lastModifiedTime, lastModifiedBy) of the table
         if (context.getFilterEnabledFlag()) {
+            LOG.info("AlterTableRename event in HiveHook: Filter flag is enabled");
             if (context.getValidEntityFlag(newTable.getDbName())) {
+                LOG.info("AlterTableRename event in HiveHook: Valid entity detected " + newTable.getDbName());
                 ret.add(new EntityPartialUpdateRequestV2(getUserName(), oldTableId, renamedTableEntity));
             }
         } else {
+            LOG.info("AlterTableRename event in HiveHook: Filter flag is disabled");
             ret.add(new EntityPartialUpdateRequestV2(getUserName(), oldTableId, renamedTableEntity));
         }
 

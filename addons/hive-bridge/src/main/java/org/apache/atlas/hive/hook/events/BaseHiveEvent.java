@@ -568,7 +568,7 @@ public abstract class BaseHiveEvent {
         return context.getClusterName();
     }
 
-    protected Hive getHive() {
+    public Hive getHive() {
         return context.getHive();
     }
 

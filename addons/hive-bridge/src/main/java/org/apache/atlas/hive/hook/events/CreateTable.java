@@ -18,6 +18,7 @@
 
 package org.apache.atlas.hive.hook.events;
 
+import kafka.security.auth.Create;
 import org.apache.atlas.hive.hook.AtlasHiveHookContext;
 import org.apache.atlas.model.instance.AtlasEntity;
 import org.apache.atlas.model.instance.AtlasEntity.AtlasEntitiesWithExtInfo;
@@ -27,12 +28,19 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.ql.hooks.Entity;
+import org.apache.hadoop.hive.ql.hooks.HookContext;
+import org.apache.hadoop.hive.ql.hooks.WriteEntity;
 import org.apache.hadoop.hive.ql.metadata.Table;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 public class CreateTable extends BaseHiveEvent {
+    private static final Logger LOG = LoggerFactory.getLogger(CreateTable.class);
+
     private final boolean skipTempTables;
 
     public CreateTable(AtlasHiveHookContext context, boolean skipTempTables) {
@@ -58,7 +66,9 @@ public class CreateTable extends BaseHiveEvent {
         Database                 db    = null;
         Table                    table = null;
 
-        for (Entity entity : getHiveContext().getOutputs()) {
+        HookContext hookContext = getHiveContext();
+        Set<WriteEntity> writeEntities = hookContext.getOutputs();
+        for (Entity entity : writeEntities) {
             if (entity.getType() == Entity.Type.TABLE) {
                 table = entity.getTable();
 
@@ -84,11 +94,16 @@ public class CreateTable extends BaseHiveEvent {
                 AtlasEntity hdfsPathEntity = getHDFSPathEntity(table.getDataLocation());
                 AtlasEntity processEntity  = getHiveProcessEntity(Collections.singletonList(hdfsPathEntity), Collections.singletonList(tblEntity));
                 if (context.getFilterEnabledFlag()) {
-                    if (context.getValidEntityFlag(table.getDbName().toLowerCase())) {
+                    LOG.info("CreateTable event in HiveHook: Filter flag is enabled");
+                    if (context.getValidEntityFlag(db.getName())) {
+                        LOG.info("CreateTable event in HiveHook: valid entity detected with name " + db.getName());
                         ret.addEntity(processEntity);
                         ret.addReferredEntity(hdfsPathEntity);
+                    } else {
+                        LOG.info("CreateTable event in HiveHook: invalid entity detected with name " + db.getName());
                     }
                 } else {
+                    LOG.info("CreateTable event in HiveHook: Filter flag is disabled");
                     ret.addEntity(processEntity);
                     ret.addReferredEntity(hdfsPathEntity);
                 }

@@ -98,10 +98,16 @@ public class AlterTableRenameCol extends AlterTable {
             newColumn.setAttribute(ATTRIBUTE_QUALIFIED_NAME, getQualifiedName(newTable, changedColumnNew));
 
             if (context.getFilterEnabledFlag()) {
-                if (context.getValidEntityFlag(oldTable.getDbName()) || context.getValidEntityFlag(newTable.getDbName())) {
+                LOG.info("AlterTableRenameCol event in HiveHook: Filter flag is enabled");
+                if (context.getValidEntityFlag(oldTable.getDbName())) {
+                    LOG.info("AlterTableRenameCol event in HiveHook: Valid entity detected for " + oldTable.getDbName());
+                    ret.add(0, new EntityPartialUpdateRequestV2(getUserName(), oldColumnId, new AtlasEntityWithExtInfo(newColumn)));
+                } else if (context.getValidEntityFlag(newTable.getDbName())) {
+                    LOG.info("AlterTableRenameCol event in HiveHook: Valid entity detected for " + newTable.getDbName());
                     ret.add(0, new EntityPartialUpdateRequestV2(getUserName(), oldColumnId, new AtlasEntityWithExtInfo(newColumn)));
                 }
             } else {
+                LOG.info("AlterTableRenameCol event in HiveHook: Filter flag is disabled");
                 ret.add(0, new EntityPartialUpdateRequestV2(getUserName(), oldColumnId, new AtlasEntityWithExtInfo(newColumn)));
             }
         } else {

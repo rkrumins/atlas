@@ -67,10 +67,15 @@ public class CreateDatabase extends BaseHiveEvent {
                 if (db != null) {
                     AtlasEntity dbEntity = toDbEntity(db);
                     if (context.getFilterEnabledFlag()) {
+                        LOG.info("CreateDatabase event in HiveHook: Filter flag is enabled");
                         if (context.getValidEntityFlag(db.getName().toLowerCase())) {
+                            LOG.info("CreateDatabase event in HiveHook: valid entity detected with name " + db.getName());
                             ret.addEntity(dbEntity);
+                        } else {
+                            LOG.info("CreateDatabase event in HiveHook: invalid entity detected with name " + db.getName());
                         }
                     } else {
+                        LOG.info("CreateDatabase event in HiveHook: Filter flag is disabled");
                         ret.addEntity(dbEntity);
                     }
                 } else {
