@@ -389,27 +389,30 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
 
     // Get filter enabled flag, if not present, then disabled by default
     public boolean getSourceFilterFlagEnabled() {
-        return atlasProperties.getBoolean(HOOK_HIVE_FILTER_ENABLED_FLAG, false);
+        boolean sourceFilterFlag = atlasProperties.getBoolean(HOOK_HIVE_FILTER_ENABLED_FLAG, false);
+        LOG.info("HiveHook: Source flag filter set to: " + sourceFilterFlag);
+        LOG.debug("HiveHook: AtlasProperties set to: " + atlasProperties.toString());
+        return sourceFilterFlag;
     }
 
     public List<String> loadSourcesConfigFile(String filePath) {
-        LOG.info("Loading source config file");
+        LOG.info("HiveHook: Loading source config file");
         File configFile = new File(filePath);
         List<String> validEntityList = null;
         try {
             validEntityList = FileUtils.readLines(configFile);
             validEntityList.forEach(String::toLowerCase);
-            LOG.info("Loaded source config file successfully from path: " + filePath);
+            LOG.info("HiveHook: Loaded source config file successfully from path: " + filePath);
         } catch (IOException e) {
-            LOG.error("Issue occurred when parsing source entity list");
+            LOG.error("HiveHook: Issue occurred when parsing source entity list");
             e.printStackTrace();
         }
         return validEntityList;
     }
 
     public Set<String> getValidHiveEntityList() {
-        LOG.info("Source entity file location: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION));
-        LOG.info("Source entity filename: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME));
+        LOG.info("HiveHook: Source entity file location: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION));
+        LOG.info("HiveHook: Source entity filename: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME));
         String sourceConfigFilePath = atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION) + File.separator + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME);
         return new HashSet<String>(loadSourcesConfigFile(sourceConfigFilePath));
     }
