@@ -36,14 +36,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Pattern;
 import static org.apache.atlas.hive.hook.events.BaseHiveEvent.ATTRIBUTE_QUALIFIED_NAME;
 import static org.apache.atlas.hive.hook.events.BaseHiveEvent.HIVE_TYPE_DB;
@@ -414,6 +407,8 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
         LOG.info("HiveHook: Source entity file location: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION));
         LOG.info("HiveHook: Source entity filename: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME));
         String sourceConfigFilePath = atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION) + File.separator + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME);
-        return new HashSet<String>(loadSourcesConfigFile(sourceConfigFilePath));
+        Set<String> validEntitiesSet = new HashSet<String>(loadSourcesConfigFile(sourceConfigFilePath));
+        LOG.info("Valid entities set to: " + Arrays.toString(validEntitiesSet.toArray()));
+        return validEntitiesSet;
     }
 }
