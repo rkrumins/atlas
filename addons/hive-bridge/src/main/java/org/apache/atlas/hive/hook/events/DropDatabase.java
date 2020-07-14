@@ -88,6 +88,7 @@ public class DropDatabase extends BaseHiveEvent {
                     }
                 } else {
                     LOG.info("DropDatabase event in HiveHook: Filter flag is disabled");
+                    LOG.info("Adding " + dbName + " database to notifications message body");
                     context.removeFromKnownTable(tblQName);
                     ret.add(dbId);
                 }

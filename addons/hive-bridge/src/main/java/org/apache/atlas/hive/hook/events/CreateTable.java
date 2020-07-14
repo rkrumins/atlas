@@ -104,6 +104,7 @@ public class CreateTable extends BaseHiveEvent {
                     }
                 } else {
                     LOG.info("CreateTable event in HiveHook: Filter flag is disabled");
+                    LOG.info("Adding " + db.getName() + " database to notifications message body");
                     ret.addEntity(processEntity);
                     ret.addReferredEntity(hdfsPathEntity);
                 }

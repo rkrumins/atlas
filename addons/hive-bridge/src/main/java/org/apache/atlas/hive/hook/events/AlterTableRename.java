@@ -127,6 +127,7 @@ public class AlterTableRename extends BaseHiveEvent {
             }
         } else {
             LOG.info("AlterTableRename event in HiveHook: Filter flag is disabled");
+            LOG.info("Adding " + newTable.getDbName() + " database to notifications message body");
             ret.add(new EntityPartialUpdateRequestV2(getUserName(), oldTableId, renamedTableEntity));
         }
 

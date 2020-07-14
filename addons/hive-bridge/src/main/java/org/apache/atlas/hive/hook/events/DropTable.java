@@ -74,6 +74,7 @@ public class DropTable extends BaseHiveEvent {
                     }
                 } else {
                     LOG.info("DropTable event in HiveHook: Filter flag is disabled");
+                    LOG.info("Adding " + dbName + " database to notifications message body");
                     context.removeFromKnownTable(tblQName);
                     ret.add(dbId);
                 }

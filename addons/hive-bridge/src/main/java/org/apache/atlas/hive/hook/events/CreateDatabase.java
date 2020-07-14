@@ -76,6 +76,7 @@ public class CreateDatabase extends BaseHiveEvent {
                         }
                     } else {
                         LOG.info("CreateDatabase event in HiveHook: Filter flag is disabled");
+                        LOG.info("Adding " + db.getName() + " database to notifications message body");
                         ret.addEntity(dbEntity);
                     }
                 } else {
