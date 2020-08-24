@@ -718,7 +718,12 @@
 
     <dependencyManagement>
         <dependencies>
-
+            <!-- https://mvnrepository.com/artifact/javax.annotation/javax.annotation-api -->
+            <dependency>
+                <groupId>javax.annotation</groupId>
+                <artifactId>javax.annotation-api</artifactId>
+                <version>1.3.1</version>
+            </dependency>
             <dependency>
                 <groupId>com.google.guava</groupId>
                 <artifactId>guava</artifactId>
@@ -2135,25 +2140,25 @@
                 </executions>
             </plugin>
 
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>findbugs-maven-plugin</artifactId>
-                <configuration>
-                    <!--debug>true</debug -->
-                    <xmlOutput>true</xmlOutput>
-                    <failOnError>false</failOnError>
-                    <skip>${skipCheck}</skip>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>findbugs-check</id>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                        <phase>verify</phase>
-                    </execution>
-                </executions>
-            </plugin>
+<!--            <plugin>-->
+<!--                <groupId>org.codehaus.mojo</groupId>-->
+<!--                <artifactId>findbugs-maven-plugin</artifactId>-->
+<!--                <configuration>-->
+<!--                    &lt;!&ndash;debug>true</debug &ndash;&gt;-->
+<!--                    <xmlOutput>true</xmlOutput>-->
+<!--                    <failOnError>false</failOnError>-->
+<!--                    <skip>${skipCheck}</skip>-->
+<!--                </configuration>-->
+<!--                <executions>-->
+<!--                    <execution>-->
+<!--                        <id>findbugs-check</id>-->
+<!--                        <goals>-->
+<!--                            <goal>check</goal>-->
+<!--                        </goals>-->
+<!--                        <phase>verify</phase>-->
+<!--                    </execution>-->
+<!--                </executions>-->
+<!--            </plugin>-->
 
             <!-- Source code metrics: mvn javancss:report or mvn site -->
             <plugin>
