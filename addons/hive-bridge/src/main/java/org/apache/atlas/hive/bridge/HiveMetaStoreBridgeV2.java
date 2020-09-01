@@ -306,6 +306,7 @@ public class HiveMetaStoreBridgeV2 {
                     LOG.info("Successfully imported {} tables from database {}", tablesImported, databaseName);
                 } else {
                     LOG.error("Imported {} of {} tables from database {}. Please check logs for errors during import", tablesImported, tableNames.size(), databaseName);
+                    System.exit(1);
                 }
             }
         } else {
