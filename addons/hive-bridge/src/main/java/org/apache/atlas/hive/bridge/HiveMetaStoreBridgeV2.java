@@ -65,6 +65,7 @@ import org.slf4j.LoggerFactory;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -137,16 +138,19 @@ public class HiveMetaStoreBridgeV2 {
             HiveMetaStoreBridgeV2 hiveMetaStoreBridge = new HiveMetaStoreBridgeV2(atlasConf, new HiveConf(), atlasClientV2);
 
             if (StringUtils.isNotEmpty(fileToImport)) {
+                // Check if file empty, then exit rather than proceed
                 File f = new File(fileToImport);
 
                 if (f.exists() && f.canRead()) {
                     BufferedReader br   = new BufferedReader(new FileReader(f));
                     String         line = null;
-
+                    int lineCount = 0;
+                    int successfulImportCount = 0;
                     while((line = br.readLine()) != null) {
                         String val[] = line.split(":");
 
                         if (ArrayUtils.isNotEmpty(val)) {
+                            lineCount++;
                             databaseToImport = val[0];
 
                             if (val.length > 1) {
@@ -155,19 +159,37 @@ public class HiveMetaStoreBridgeV2 {
                                 tableToImport = "";
                             }
 
-                            hiveMetaStoreBridge.importHiveMetadata(databaseToImport, tableToImport, failOnError);
+                            boolean successFlag = hiveMetaStoreBridge.importHiveMetadata(databaseToImport, tableToImport, failOnError, true);
+                            if (successFlag) {
+                                LOG.info("Successfully ingested data for database: {}", databaseToImport);
+                                successfulImportCount++;
+                            }
+                            else {
+                                LOG.error("Failed to ingest data for database: {}", databaseToImport);
+                            }
                         }
                     }
 
-                    exitCode = EXIT_CODE_SUCCESS;
+                    // Look into this
+                    if (successfulImportCount == lineCount) {
+                        LOG.info("Imported {} source systems out of {} defined in file {}", successfulImportCount, lineCount, f.getName());
+                        LOG.info("Successfully imported all source systems metadata");
+                        exitCode = EXIT_CODE_SUCCESS;
+                    }
                 } else {
                     LOG.error("Failed to read the input file: " + fileToImport);
                 }
             } else {
-                hiveMetaStoreBridge.importHiveMetadata(databaseToImport, tableToImport, failOnError);
+                boolean successFlag = hiveMetaStoreBridge.importHiveMetadata(databaseToImport, tableToImport, failOnError, true);
+                if (successFlag) {
+                    LOG.info("Successfully ingested all data for database: {}", databaseToImport);
+                    exitCode = EXIT_CODE_SUCCESS;
+                }
+                else {
+                    LOG.error("Failed to ingest data for database: {}", databaseToImport);
+                }
             }
 
-            exitCode = EXIT_CODE_SUCCESS;
         } catch(ParseException e) {
             LOG.error("Failed to parse arguments. Error: ", e.getMessage());
             printUsage();
@@ -250,6 +272,15 @@ public class HiveMetaStoreBridgeV2 {
         importDatabases(failOnError, databaseToImport, tableToImport);
     }
 
+    @VisibleForTesting
+    public boolean importHiveMetadata(String databaseToImport, String tableToImport, boolean failOnError, boolean returnSuccessFlag) throws Exception {
+        LOG.info("Importing Hive metadata");
+
+        importDatabases(failOnError, databaseToImport, tableToImport, true);
+        return importDatabases(failOnError, databaseToImport, tableToImport, true);
+    }
+
+
     private void importDatabases(boolean failOnError, String databaseToImport, String tableToImport) throws Exception {
         final List<String> databaseNames;
 
@@ -271,6 +302,44 @@ public class HiveMetaStoreBridgeV2 {
             }
         } else {
             LOG.info("No database found");
+            // Should be deleted, thus refactored to return a list of successful DBs
+            System.exit(1);
+        }
+    }
+
+    // Returns true if database was imported successfully, else returns false
+    private boolean importDatabases(boolean failOnError, String databaseToImport, String tableToImport, boolean returnCodes) throws Exception {
+        final List<String> databaseNames;
+
+        if (StringUtils.isEmpty(databaseToImport)) {
+            databaseNames = hiveClient.getAllDatabases();
+        } else {
+            databaseNames = hiveClient.getDatabasesByPattern(databaseToImport);
+        }
+
+        if(!CollectionUtils.isEmpty(databaseNames)) {
+            LOG.info("Found {} databases", databaseNames.size());
+
+            for (String databaseName : databaseNames) {
+                AtlasEntityWithExtInfo dbEntity = registerDatabase(databaseName);
+
+                if (dbEntity != null) {
+                    int importedTableCount = importTables(dbEntity.getEntity(), databaseName, tableToImport, failOnError);
+                    int hiveDbTableCount = hiveClient.getTablesForDb(databaseToImport, "*").size();
+                    if (StringUtils.isEmpty(tableToImport) && importedTableCount != hiveDbTableCount) {
+                        LOG.error("Failed to ingest all tables from {} database, ingested {} out of {}", databaseName, importedTableCount, hiveDbTableCount);
+                        return false;
+                    }
+                    // Check if table actually exists
+                    LOG.info("Successfully ingested {} tables from {} database", importedTableCount, databaseName);
+                }
+            }
+            return true;
+        } else {
+            LOG.info("No database found");
+            LOG.error("Marking as failure since database {} does not exist in Hive", databaseToImport);
+            // Should be deleted, thus refactored to return a list of successful DBs
+            return false;
         }
     }
 
@@ -305,12 +374,14 @@ public class HiveMetaStoreBridgeV2 {
                 if (tablesImported == tableNames.size()) {
                     LOG.info("Successfully imported {} tables from database {}", tablesImported, databaseName);
                 } else {
-                    LOG.error("Imported {} of {} tables from database {}. Please check logs for errors during import", tablesImported, tableNames.size(), databaseName);
-                    System.exit(1);
+                    LOG.info("Imported {} of {} tables from database {}. Please check logs for errors during import", tablesImported, tableNames.size(), databaseName);
+                    // Should return false flag
+//                    System.exit(1);
                 }
             }
         } else {
             LOG.info("No tables to import in database {}", databaseName);
+//            System.exit(1);
         }
 
         return tablesImported;
@@ -320,6 +391,7 @@ public class HiveMetaStoreBridgeV2 {
     public int importTable(AtlasEntity dbEntity, String databaseName, String tableName, final boolean failOnError) throws Exception {
         try {
             Table                  table       = hiveClient.getTable(databaseName, tableName);
+            LOG.info("ImportTable DEBUG: table name {}", tableName);
             AtlasEntityWithExtInfo tableEntity = registerTable(dbEntity, table);
 
             if (table.getTableType() == TableType.EXTERNAL_TABLE) {
@@ -404,6 +476,7 @@ public class HiveMetaStoreBridgeV2 {
             AtlasEntityWithExtInfo tableEntity = findTableEntity(table);
 
             if (tableEntity == null) {
+                LOG.info("registerTable DEBUG: Table not found, creating entity {}", table.getTableName());
                 tableEntity = toTableEntity(dbEntity, table);
 
                 tableEntity.addReferredEntity(dbEntity);
@@ -587,7 +660,9 @@ public class HiveMetaStoreBridgeV2 {
 
         AtlasEntity       sdEntity = toStroageDescEntity(hiveTable.getSd(), tableQualifiedName, getStorageDescQFName(tableQualifiedName), BaseHiveEvent.getObjectId(tableEntity));
         List<AtlasEntity> partKeys = toColumns(hiveTable.getPartitionKeys(), tableEntity);
+        LOG.info("toTableEntity: DEBUG-EXPLICIT PartKeys to be passed {}", partKeys);
         List<AtlasEntity> columns  = toColumns(hiveTable.getCols(), tableEntity);
+        LOG.info("toTableEntity: DEBUG-EXPLICIT Columns to be passed {}", columns.toString());
 
         tableEntity.setAttribute(ATTRIBUTE_STORAGEDESC, BaseHiveEvent.getObjectId(sdEntity));
         tableEntity.setAttribute(ATTRIBUTE_PARTITION_KEYS, BaseHiveEvent.getObjectIds(partKeys));
@@ -598,16 +673,20 @@ public class HiveMetaStoreBridgeV2 {
         }
 
         table.addReferredEntity(database);
+        LOG.info("toTable: Adding database with guid {} to referred table entity with GUID {}", database.getGuid(), table.getEntity().getGuid());
         table.addReferredEntity(sdEntity);
+        LOG.info("toTable: Adding storage desc with guid {} to referred table entity with GUID {}", sdEntity.getGuid(), table.getEntity().getGuid());
 
         if (partKeys != null) {
             for (AtlasEntity partKey : partKeys) {
+                LOG.info("toTableEntity: Adding partKey of type {} with guid {}", partKey.getTypeName(), partKey.getGuid());
                 table.addReferredEntity(partKey);
             }
         }
 
         if (columns != null) {
             for (AtlasEntity column : columns) {
+                LOG.info("toTableEntity: Adding column of type {} with guid {}", column.getTypeName(), column.getGuid());
                 table.addReferredEntity(column);
             }
         }
@@ -671,11 +750,14 @@ public class HiveMetaStoreBridgeV2 {
         int columnPosition = 0;
         for (FieldSchema fs : schemaList) {
             LOG.debug("Processing field {}", fs);
+            LOG.info("Processing field name {} of type {} and overall info is {}", fs.getName(), fs.getType(), fs);
 
             AtlasEntity column = new AtlasEntity(HiveDataTypes.HIVE_COLUMN.getName());
 
             column.setAttribute(ATTRIBUTE_TABLE, BaseHiveEvent.getObjectId(table));
+            LOG.info("toColumns DEBUG INFO: {} with value {}", ATTRIBUTE_TABLE, BaseHiveEvent.getObjectId(table));
             column.setAttribute(ATTRIBUTE_QUALIFIED_NAME, getColumnQualifiedName((String) table.getAttribute(ATTRIBUTE_QUALIFIED_NAME), fs.getName()));
+            LOG.info("toColumns DEBUG INFO: {} with value {}", ATTRIBUTE_QUALIFIED_NAME, getColumnQualifiedName((String) table.getAttribute(ATTRIBUTE_QUALIFIED_NAME), fs.getName()));
             column.setAttribute(ATTRIBUTE_NAME, fs.getName());
             column.setAttribute(ATTRIBUTE_OWNER, table.getAttribute(ATTRIBUTE_OWNER));
             column.setAttribute(ATTRIBUTE_COL_TYPE, fs.getType());
@@ -862,14 +944,27 @@ public class HiveMetaStoreBridgeV2 {
         return tableQualifiedName + "_storage";
     }
 
-
     public static String getColumnQualifiedName(final String tableQualifiedName, final String colName) {
-        final String[] parts       = tableQualifiedName.split("@");
-        final String   tableName   = parts[0];
-        final String   clusterName = parts[1];
+        char QNAME_SEP_CLUSTER_NAME = '@';
+        char QNAME_SEP_ENTITY_NAME = '.';
+        int sepPos = tableQualifiedName.lastIndexOf(QNAME_SEP_CLUSTER_NAME);
 
-        return String.format("%s.%s@%s", tableName, colName.toLowerCase(), clusterName);
+        if (sepPos == -1) {
+            return tableQualifiedName + QNAME_SEP_ENTITY_NAME + colName.toLowerCase();
+        } else {
+            return tableQualifiedName.substring(0, sepPos) + QNAME_SEP_ENTITY_NAME + colName.toLowerCase() + tableQualifiedName.substring(sepPos);
+        }
+
     }
+
+//    Old implementation
+//    public static String getColumnQualifiedName(final String tableQualifiedName, final String colName) {
+//        final String[] parts       = tableQualifiedName.split("@");
+//        final String   tableName   = parts[0];
+//        final String   clusterName = parts[1];
+//
+//        return String.format("%s.%s@%s", tableName, colName.toLowerCase(), clusterName);
+//    }
 
     public static long getTableCreatedTime(Table table) {
         return table.getTTable().getCreateTime() * MILLIS_CONVERT_FACTOR;

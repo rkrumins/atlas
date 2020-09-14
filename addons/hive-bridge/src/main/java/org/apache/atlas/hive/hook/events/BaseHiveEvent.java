@@ -77,7 +77,16 @@ public class BaseHiveEvent {
 
     public static AtlasObjectId getObjectId(AtlasEntity entity) {
         String        qualifiedName = (String) entity.getAttribute(ATTRIBUTE_QUALIFIED_NAME);
-        AtlasObjectId ret           = new AtlasObjectId(entity.getGuid(), entity.getTypeName(), Collections.singletonMap(ATTRIBUTE_QUALIFIED_NAME, qualifiedName));
+        String guid = entity.getGuid().toString();
+        LOG.info("BaseHiveEvent DEBUG-LOG: entity guid is {} and qualified name is {} of type {}", entity.getGuid().toString(), qualifiedName, entity.getTypeName());
+        LOG.info("BaseHiveEvent EXPLICIT-DEBUG: {}", entity.getAttributes().toString());
+        AtlasObjectId ret           = new AtlasObjectId(entity.getGuid(), entity.getTypeName(), Collections.singletonMap(ATTRIBUTE_QUALIFIED_NAME, (Object) qualifiedName));
+//        AtlasObjectId ret           = new AtlasObjectId(entity.getTypeName(), entity.getGuid(), Collections.singletonMap(ATTRIBUTE_QUALIFIED_NAME, qualifiedName));
+        // This works all the way to table level
+//        AtlasObjectId ret           = new AtlasObjectId(entity.getTypeName(), ATTRIBUTE_QUALIFIED_NAME, qualifiedName);
+//        AtlasObjectId ret           = new AtlasObjectId(entity.getGuid(), entity.getTypeName(), Collections.singletonMap(ATTRIBUTE_QUALIFIED_NAME, qualifiedName));
+//        AtlasObjectId ret           = new AtlasObjectId(entity.getTypeName(), qualifiedName, Collections.singletonMap(ATTRIBUTE_QUALIFIED_NAME, qualifiedName));
+//        AtlasObjectId ret           = new AtlasObjectId(entity.getTypeName(), ATTRIBUTE_QUALIFIED_NAME, qualifiedName);
 
         return ret;
     }
@@ -111,5 +120,7 @@ public class BaseHiveEvent {
 
         return ret;
     }
+
+
 
 }
