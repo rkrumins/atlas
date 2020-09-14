@@ -89,7 +89,6 @@ public class HiveMetaStoreBridgeV2 {
     public static final String ATLAS_ENDPOINT                  = "atlas.rest.address";
     public static final String SEP                             = ":".intern();
     public static final String HDFS_PATH                       = "hdfs_path";
-    public static final String DB                              = "db";
 
     private static final int    EXIT_CODE_SUCCESS = 0;
     private static final int    EXIT_CODE_FAILED  = 1;
@@ -170,7 +169,6 @@ public class HiveMetaStoreBridgeV2 {
                         }
                     }
 
-                    // Look into this
                     if (successfulImportCount == lineCount) {
                         LOG.info("Imported {} source systems out of {} defined in file {}", successfulImportCount, lineCount, f.getName());
                         LOG.info("Successfully imported all source systems metadata");
@@ -302,7 +300,6 @@ public class HiveMetaStoreBridgeV2 {
             }
         } else {
             LOG.info("No database found");
-            // Should be deleted, thus refactored to return a list of successful DBs
             System.exit(1);
         }
     }
@@ -338,7 +335,6 @@ public class HiveMetaStoreBridgeV2 {
         } else {
             LOG.info("No database found");
             LOG.error("Marking as failure since database {} does not exist in Hive", databaseToImport);
-            // Should be deleted, thus refactored to return a list of successful DBs
             return false;
         }
     }
@@ -375,13 +371,10 @@ public class HiveMetaStoreBridgeV2 {
                     LOG.info("Successfully imported {} tables from database {}", tablesImported, databaseName);
                 } else {
                     LOG.info("Imported {} of {} tables from database {}. Please check logs for errors during import", tablesImported, tableNames.size(), databaseName);
-                    // Should return false flag
-//                    System.exit(1);
                 }
             }
         } else {
             LOG.info("No tables to import in database {}", databaseName);
-//            System.exit(1);
         }
 
         return tablesImported;
@@ -660,9 +653,9 @@ public class HiveMetaStoreBridgeV2 {
 
         AtlasEntity       sdEntity = toStroageDescEntity(hiveTable.getSd(), tableQualifiedName, getStorageDescQFName(tableQualifiedName), BaseHiveEvent.getObjectId(tableEntity));
         List<AtlasEntity> partKeys = toColumns(hiveTable.getPartitionKeys(), tableEntity);
-        LOG.info("toTableEntity: DEBUG-EXPLICIT PartKeys to be passed {}", partKeys);
+        LOG.debug("toTableEntity: DEBUG-EXPLICIT PartKeys to be passed {}", partKeys);
         List<AtlasEntity> columns  = toColumns(hiveTable.getCols(), tableEntity);
-        LOG.info("toTableEntity: DEBUG-EXPLICIT Columns to be passed {}", columns.toString());
+        LOG.debug("toTableEntity: DEBUG-EXPLICIT Columns to be passed {}", columns.toString());
 
         tableEntity.setAttribute(ATTRIBUTE_STORAGEDESC, BaseHiveEvent.getObjectId(sdEntity));
         tableEntity.setAttribute(ATTRIBUTE_PARTITION_KEYS, BaseHiveEvent.getObjectIds(partKeys));
@@ -673,20 +666,20 @@ public class HiveMetaStoreBridgeV2 {
         }
 
         table.addReferredEntity(database);
-        LOG.info("toTable: Adding database with guid {} to referred table entity with GUID {}", database.getGuid(), table.getEntity().getGuid());
+        LOG.debug("toTable: Adding referred database with guid {} to table entity with GUID {}", database.getGuid(), table.getEntity().getGuid());
         table.addReferredEntity(sdEntity);
-        LOG.info("toTable: Adding storage desc with guid {} to referred table entity with GUID {}", sdEntity.getGuid(), table.getEntity().getGuid());
+        LOG.debug("toTable: Adding referred storage desc with guid {} to table entity with GUID {}", sdEntity.getGuid(), table.getEntity().getGuid());
 
         if (partKeys != null) {
             for (AtlasEntity partKey : partKeys) {
-                LOG.info("toTableEntity: Adding partKey of type {} with guid {}", partKey.getTypeName(), partKey.getGuid());
+                LOG.debug("toTableEntity: Adding partKey of type {} with guid {}", partKey.getTypeName(), partKey.getGuid());
                 table.addReferredEntity(partKey);
             }
         }
 
         if (columns != null) {
             for (AtlasEntity column : columns) {
-                LOG.info("toTableEntity: Adding column of type {} with guid {}", column.getTypeName(), column.getGuid());
+                LOG.debug("toTableEntity: Adding column of type {} with guid {}", column.getTypeName(), column.getGuid());
                 table.addReferredEntity(column);
             }
         }
@@ -956,15 +949,6 @@ public class HiveMetaStoreBridgeV2 {
         }
 
     }
-
-//    Old implementation
-//    public static String getColumnQualifiedName(final String tableQualifiedName, final String colName) {
-//        final String[] parts       = tableQualifiedName.split("@");
-//        final String   tableName   = parts[0];
-//        final String   clusterName = parts[1];
-//
-//        return String.format("%s.%s@%s", tableName, colName.toLowerCase(), clusterName);
-//    }
 
     public static long getTableCreatedTime(Table table) {
         return table.getTTable().getCreateTime() * MILLIS_CONVERT_FACTOR;
