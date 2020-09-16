@@ -65,7 +65,6 @@ import org.slf4j.LoggerFactory;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -137,10 +136,11 @@ public class HiveMetaStoreBridgeV2 {
             HiveMetaStoreBridgeV2 hiveMetaStoreBridge = new HiveMetaStoreBridgeV2(atlasConf, new HiveConf(), atlasClientV2);
 
             if (StringUtils.isNotEmpty(fileToImport)) {
-                // Check if file empty, then exit rather than proceed
+                LOG.info("Importing data from file");
                 File f = new File(fileToImport);
 
                 if (f.exists() && f.canRead()) {
+                    LOG.info("Databases and tables defined in {} file will be imported", f.getName());
                     BufferedReader br   = new BufferedReader(new FileReader(f));
                     String         line = null;
                     int lineCount = 0;
@@ -304,6 +304,10 @@ public class HiveMetaStoreBridgeV2 {
         }
     }
 
+    private int getTableCountInHiveDatabase(String databaseName) throws HiveException {
+        return hiveClient.getTablesForDb(databaseName, "*").size();
+    }
+
     // Returns true if database was imported successfully, else returns false
     private boolean importDatabases(boolean failOnError, String databaseToImport, String tableToImport, boolean returnCodes) throws Exception {
         final List<String> databaseNames;
@@ -322,7 +326,7 @@ public class HiveMetaStoreBridgeV2 {
 
                 if (dbEntity != null) {
                     int importedTableCount = importTables(dbEntity.getEntity(), databaseName, tableToImport, failOnError);
-                    int hiveDbTableCount = hiveClient.getTablesForDb(databaseToImport, "*").size();
+                    int hiveDbTableCount = getTableCountInHiveDatabase(databaseToImport);
                     if (StringUtils.isEmpty(tableToImport) && importedTableCount != hiveDbTableCount) {
                         LOG.error("Failed to ingest all tables from {} database, ingested {} out of {}", databaseName, importedTableCount, hiveDbTableCount);
                         return false;
@@ -370,7 +374,7 @@ public class HiveMetaStoreBridgeV2 {
                 }
             } finally {
                 if (tablesImported == tableNames.size()) {
-                    LOG.info("Successfully imported {} tables from database {}", tablesImported, databaseName);
+                    LOG.info("Imported {} tables from {} database", tablesImported, databaseName);
                 } else {
                     LOG.info("Imported {} of {} tables from database {}. Please check logs for errors during import", tablesImported, tableNames.size(), databaseName);
                 }
@@ -475,7 +479,7 @@ public class HiveMetaStoreBridgeV2 {
             AtlasEntityWithExtInfo tableEntity = findTableEntity(table);
 
             if (tableEntity == null) {
-                LOG.info("registerTable DEBUG: Table not found, creating entity {}", table.getTableName());
+                LOG.debug("DEBUG registerTable: Table not found, creating entity {}", table.getTableName());
                 tableEntity = toTableEntity(dbEntity, table);
 
                 tableEntity.addReferredEntity(dbEntity);
@@ -659,9 +663,9 @@ public class HiveMetaStoreBridgeV2 {
 
         AtlasEntity       sdEntity = toStroageDescEntity(hiveTable.getSd(), tableQualifiedName, getStorageDescQFName(tableQualifiedName), BaseHiveEvent.getObjectId(tableEntity));
         List<AtlasEntity> partKeys = toColumns(hiveTable.getPartitionKeys(), tableEntity);
-        LOG.debug("toTableEntity: DEBUG-EXPLICIT PartKeys to be passed {}", partKeys);
+        LOG.debug("DEBUG-EXPLICIT toTableEntity: PartKeys to be passed {}", partKeys);
         List<AtlasEntity> columns  = toColumns(hiveTable.getCols(), tableEntity);
-        LOG.debug("toTableEntity: DEBUG-EXPLICIT Columns to be passed {}", columns.toString());
+        LOG.debug("DEBUG-EXPLICIT toTableEntity: Columns to be passed {}", columns.toString());
 
         tableEntity.setAttribute(ATTRIBUTE_STORAGEDESC, BaseHiveEvent.getObjectId(sdEntity));
         tableEntity.setAttribute(ATTRIBUTE_PARTITION_KEYS, BaseHiveEvent.getObjectIds(partKeys));
@@ -672,20 +676,20 @@ public class HiveMetaStoreBridgeV2 {
         }
 
         table.addReferredEntity(database);
-        LOG.debug("toTable: Adding referred database with guid {} to table entity with GUID {}", database.getGuid(), table.getEntity().getGuid());
+        LOG.debug("DEBUG-EXPLICIT toTable: Adding referred database with guid {} to table entity with GUID {}", database.getGuid(), table.getEntity().getGuid());
         table.addReferredEntity(sdEntity);
-        LOG.debug("toTable: Adding referred storage desc with guid {} to table entity with GUID {}", sdEntity.getGuid(), table.getEntity().getGuid());
+        LOG.debug("DEBUG-EXPLICIT toTable: Adding referred storage desc with guid {} to table entity with GUID {}", sdEntity.getGuid(), table.getEntity().getGuid());
 
         if (partKeys != null) {
             for (AtlasEntity partKey : partKeys) {
-                LOG.debug("toTableEntity: Adding partKey of type {} with guid {}", partKey.getTypeName(), partKey.getGuid());
+                LOG.debug("DEBUG-EXPLICIT toTableEntity: Adding partKey of type {} with guid {}", partKey.getTypeName(), partKey.getGuid());
                 table.addReferredEntity(partKey);
             }
         }
 
         if (columns != null) {
             for (AtlasEntity column : columns) {
-                LOG.debug("toTableEntity: Adding column of type {} with guid {}", column.getTypeName(), column.getGuid());
+                LOG.debug("DEBUG-EXPLICIT toTableEntity: Adding column of type {} with guid {}", column.getTypeName(), column.getGuid());
                 table.addReferredEntity(column);
             }
         }
@@ -749,14 +753,14 @@ public class HiveMetaStoreBridgeV2 {
         int columnPosition = 0;
         for (FieldSchema fs : schemaList) {
             LOG.debug("Processing field {}", fs);
-            LOG.info("Processing field name {} of type {} and overall info is {}", fs.getName(), fs.getType(), fs);
+            LOG.debug("Processing field name {} of type {} and overall schema is {}", fs.getName(), fs.getType(), fs);
 
             AtlasEntity column = new AtlasEntity(HiveDataTypes.HIVE_COLUMN.getName());
 
             column.setAttribute(ATTRIBUTE_TABLE, BaseHiveEvent.getObjectId(table));
-            LOG.info("toColumns DEBUG INFO: {} with value {}", ATTRIBUTE_TABLE, BaseHiveEvent.getObjectId(table));
+            LOG.debug("DEBUG-EXPLICIT toColumns: {} with value {}", ATTRIBUTE_TABLE, BaseHiveEvent.getObjectId(table));
             column.setAttribute(ATTRIBUTE_QUALIFIED_NAME, getColumnQualifiedName((String) table.getAttribute(ATTRIBUTE_QUALIFIED_NAME), fs.getName()));
-            LOG.info("toColumns DEBUG INFO: {} with value {}", ATTRIBUTE_QUALIFIED_NAME, getColumnQualifiedName((String) table.getAttribute(ATTRIBUTE_QUALIFIED_NAME), fs.getName()));
+            LOG.debug("DEBUG-EXPLICIT toColumns: {} with value {}", ATTRIBUTE_QUALIFIED_NAME, getColumnQualifiedName((String) table.getAttribute(ATTRIBUTE_QUALIFIED_NAME), fs.getName()));
             column.setAttribute(ATTRIBUTE_NAME, fs.getName());
             column.setAttribute(ATTRIBUTE_OWNER, table.getAttribute(ATTRIBUTE_OWNER));
             column.setAttribute(ATTRIBUTE_COL_TYPE, fs.getType());

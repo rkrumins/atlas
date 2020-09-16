@@ -8,10 +8,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
-import org.apache.hadoop.hive.ql.metadata.Hive;
 import org.apache.hadoop.hive.ql.metadata.Table;
-
-import static org.apache.atlas.hive.bridge.HiveMetaStoreBridge.MILLIS_CONVERT_FACTOR;
 
 public class BaseHiveEvent {
     private static final Logger LOG = LoggerFactory.getLogger(BaseHiveEvent.class);
@@ -77,16 +74,9 @@ public class BaseHiveEvent {
 
     public static AtlasObjectId getObjectId(AtlasEntity entity) {
         String        qualifiedName = (String) entity.getAttribute(ATTRIBUTE_QUALIFIED_NAME);
-        String guid = entity.getGuid().toString();
-        LOG.info("BaseHiveEvent DEBUG-LOG: entity guid is {} and qualified name is {} of type {}", entity.getGuid().toString(), qualifiedName, entity.getTypeName());
-        LOG.info("BaseHiveEvent EXPLICIT-DEBUG: {}", entity.getAttributes().toString());
+        LOG.debug("BaseHiveEvent DEBUG-LOG: entity guid is {} and qualified name is {} of type {}", entity.getGuid().toString(), qualifiedName, entity.getTypeName());
+        LOG.debug("BaseHiveEvent DEBUG-LOG: entity attributes: {}", entity.getAttributes().toString());
         AtlasObjectId ret           = new AtlasObjectId(entity.getGuid(), entity.getTypeName(), Collections.singletonMap(ATTRIBUTE_QUALIFIED_NAME, (Object) qualifiedName));
-//        AtlasObjectId ret           = new AtlasObjectId(entity.getTypeName(), entity.getGuid(), Collections.singletonMap(ATTRIBUTE_QUALIFIED_NAME, qualifiedName));
-        // This works all the way to table level
-//        AtlasObjectId ret           = new AtlasObjectId(entity.getTypeName(), ATTRIBUTE_QUALIFIED_NAME, qualifiedName);
-//        AtlasObjectId ret           = new AtlasObjectId(entity.getGuid(), entity.getTypeName(), Collections.singletonMap(ATTRIBUTE_QUALIFIED_NAME, qualifiedName));
-//        AtlasObjectId ret           = new AtlasObjectId(entity.getTypeName(), qualifiedName, Collections.singletonMap(ATTRIBUTE_QUALIFIED_NAME, qualifiedName));
-//        AtlasObjectId ret           = new AtlasObjectId(entity.getTypeName(), ATTRIBUTE_QUALIFIED_NAME, qualifiedName);
 
         return ret;
     }
