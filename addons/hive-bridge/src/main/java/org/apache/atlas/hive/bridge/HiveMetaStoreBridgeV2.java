@@ -178,13 +178,16 @@ public class HiveMetaStoreBridgeV2 {
                     LOG.error("Failed to read the input file: " + fileToImport);
                 }
             } else {
+                // Loading metadata from parameters passed
                 boolean successFlag = hiveMetaStoreBridge.importHiveMetadata(databaseToImport, tableToImport, failOnError, true);
-                if (successFlag) {
-                    LOG.info("Successfully ingested all data for database: {}", databaseToImport);
+                if (successFlag && StringUtils.isEmpty(tableToImport)) {
+                    LOG.info("Finished loading all metadata for database: {}", databaseToImport);
                     exitCode = EXIT_CODE_SUCCESS;
-                }
-                else {
-                    LOG.error("Failed to ingest data for database: {}", databaseToImport);
+                } else if (successFlag && StringUtils.isNotEmpty(tableToImport)) {
+                    LOG.info("Finished loading metadata for table: {} in database: {}", tableToImport, databaseToImport);
+                    exitCode = EXIT_CODE_SUCCESS;
+                } else {
+                    LOG.error("Failed to ingest metadata for database: {}", databaseToImport);
                 }
             }
 
@@ -274,7 +277,6 @@ public class HiveMetaStoreBridgeV2 {
     public boolean importHiveMetadata(String databaseToImport, String tableToImport, boolean failOnError, boolean returnSuccessFlag) throws Exception {
         LOG.info("Importing Hive metadata");
 
-        importDatabases(failOnError, databaseToImport, tableToImport, true);
         return importDatabases(failOnError, databaseToImport, tableToImport, true);
     }
 
@@ -305,7 +307,17 @@ public class HiveMetaStoreBridgeV2 {
     }
 
     private int getTableCountInHiveDatabase(String databaseName) throws HiveException {
-        return hiveClient.getTablesForDb(databaseName, "*").size();
+        String tablePatternForAll = "*";
+
+        if (StringUtils.isEmpty(databaseName)) {
+            String defaultDbName = "default";
+            LOG.info("Getting table count for all tables in default database");
+            int tableCount = hiveClient.getTablesForDb(defaultDbName, tablePatternForAll).size();
+            LOG.info("Total of {} tables found in default database", tableCount);
+            return tableCount;
+        } else {
+            return hiveClient.getTablesForDb(databaseName, tablePatternForAll).size();
+        }
     }
 
     // Returns true if database was imported successfully, else returns false
@@ -321,14 +333,20 @@ public class HiveMetaStoreBridgeV2 {
         if(!CollectionUtils.isEmpty(databaseNames)) {
             LOG.info("Found {} databases", databaseNames.size());
 
+            int totalTableCount = 0;
+            int totalImportedTableCount = 0;
+
             for (String databaseName : databaseNames) {
                 AtlasEntityWithExtInfo dbEntity = registerDatabase(databaseName);
 
                 if (dbEntity != null) {
                     int importedTableCount = importTables(dbEntity.getEntity(), databaseName, tableToImport, failOnError);
-                    int hiveDbTableCount = getTableCountInHiveDatabase(databaseToImport);
-                    if (StringUtils.isEmpty(tableToImport) && importedTableCount != hiveDbTableCount) {
-                        LOG.error("Failed to ingest all tables from {} database, ingested {} out of {}", databaseName, importedTableCount, hiveDbTableCount);
+                    totalImportedTableCount = totalImportedTableCount + importedTableCount;
+
+                    int tableCountInDatabase = getTableCountInHiveDatabase(databaseName);
+                    totalTableCount = totalTableCount + tableCountInDatabase;
+                    if (StringUtils.isEmpty(tableToImport) && importedTableCount != tableCountInDatabase) {
+                        LOG.error("Failed to ingest all tables from {} database, ingested {} out of {}", databaseName, importedTableCount, tableCountInDatabase);
                         return false;
                     } else if (StringUtils.isNotEmpty(tableToImport) && importedTableCount != 1) {
                         LOG.error("Could not import table {} from database {} as this does not exist in Hive", tableToImport, databaseName);
@@ -337,6 +355,12 @@ public class HiveMetaStoreBridgeV2 {
                     LOG.info("Successfully ingested {} tables from {} database", importedTableCount, databaseName);
                 }
             }
+
+            // Only relevant if more than 1 database is imported
+            if (databaseNames.size() > 1) {
+                LOG.info("Imported {} tables in total across {} databases", totalImportedTableCount, databaseNames.size());
+            }
+
             return true;
         } else {
             LOG.info("No database found");
@@ -394,7 +418,7 @@ public class HiveMetaStoreBridgeV2 {
     public int importTable(AtlasEntity dbEntity, String databaseName, String tableName, final boolean failOnError) throws Exception {
         try {
             Table                  table       = hiveClient.getTable(databaseName, tableName);
-            LOG.debug("ImportTable DEBUG: table name {}", tableName);
+            LOG.debug("DEBUG: importTable table name {}", tableName);
             AtlasEntityWithExtInfo tableEntity = registerTable(dbEntity, table);
 
             if (table.getTableType() == TableType.EXTERNAL_TABLE) {
