@@ -107,6 +107,7 @@ public class HiveMetaStoreBridgeV2 {
             options.addOption("d", "database", true, "Database name");
             options.addOption("t", "table", true, "Table name");
             options.addOption("f", "filename", true, "Filename");
+            options.addOption("h", "help", false, "Help");
             options.addOption("failOnError", false, "failOnError");
 
             CommandLine   cmd              = new BasicParser().parse(options, args);
@@ -114,6 +115,7 @@ public class HiveMetaStoreBridgeV2 {
             String        databaseToImport = cmd.getOptionValue("d");
             String        tableToImport    = cmd.getOptionValue("t");
             String        fileToImport     = cmd.getOptionValue("f");
+            boolean       helpFlag         = cmd.hasOption("h");
             Configuration atlasConf        = ApplicationProperties.get();
             String[]      atlasEndpoint    = atlasConf.getStringArray(ATLAS_ENDPOINT);
 
@@ -121,8 +123,14 @@ public class HiveMetaStoreBridgeV2 {
                 atlasEndpoint = new String[] { DEFAULT_ATLAS_URL };
             }
 
-            final AtlasClientV2 atlasClientV2;
+            if (helpFlag) {
+                LOG.info("Help flag [-h or --help] passed");
+                printUsage();
+                LOG.info("Usage printed, exiting...");
+                System.exit(exitCode);
+            }
 
+            final AtlasClientV2 atlasClientV2;
             if (!AuthenticationUtil.isKerberosAuthenticationEnabled()) {
                 String[] basicAuthUsernamePassword = AuthenticationUtil.getBasicAuthenticationInput();
 
@@ -134,7 +142,6 @@ public class HiveMetaStoreBridgeV2 {
             }
 
             HiveMetaStoreBridgeV2 hiveMetaStoreBridge = new HiveMetaStoreBridgeV2(atlasConf, new HiveConf(), atlasClientV2);
-
             if (StringUtils.isEmpty(databaseToImport) && StringUtils.isEmpty(tableToImport) && StringUtils.isEmpty(fileToImport)) {
                 LOG.error("No arguments passed, please specify list of source systems to import in file and -f parameter. Exiting...");
                 System.exit(exitCode);
@@ -216,7 +223,7 @@ public class HiveMetaStoreBridgeV2 {
         System.out.println("Usage 2: import-hive.sh [-d <database> OR --database <database>] [-t <table> OR --table <table>]");
         System.out.println("    Imports specified table within that database ...");
         System.out.println();
-        System.out.println("Usage 3: import-hive.sh");
+        System.out.println("Usage 3: import-hive.sh - CURRENTLY NOT SUPPORTED");
         System.out.println("    Imports all databases and tables...");
         System.out.println();
         System.out.println("Usage 4: import-hive.sh -f <filename>");
