@@ -135,6 +135,11 @@ public class HiveMetaStoreBridgeV2 {
 
             HiveMetaStoreBridgeV2 hiveMetaStoreBridge = new HiveMetaStoreBridgeV2(atlasConf, new HiveConf(), atlasClientV2);
 
+            if (StringUtils.isEmpty(databaseToImport) && StringUtils.isEmpty(tableToImport) && StringUtils.isEmpty(fileToImport)) {
+                LOG.error("No arguments passed, please specify list of source systems to import in file and -f parameter. Exiting...");
+                System.exit(exitCode);
+            }
+
             if (StringUtils.isNotEmpty(fileToImport)) {
                 LOG.info("Importing data from file");
                 File f = new File(fileToImport);
@@ -182,7 +187,7 @@ public class HiveMetaStoreBridgeV2 {
                 boolean successFlag = hiveMetaStoreBridge.importHiveMetadata(databaseToImport, tableToImport, failOnError, true);
                 if (successFlag && StringUtils.isEmpty(tableToImport)) {
                     // Fix issue where null coming up when null is passed in
-                    LOG.info("Finished loading metadata for {}", databaseToImport == null ? "all hive databases" : databaseToImport + " database");
+                    LOG.info("Finished loading metadata for {}", databaseToImport == null ? " all hive databases" : databaseToImport + " database");
                     exitCode = EXIT_CODE_SUCCESS;
                 } else if (successFlag && StringUtils.isNotEmpty(tableToImport)) {
                     LOG.info("Finished loading metadata for table: {} in database: {}", tableToImport, databaseToImport);
@@ -353,12 +358,16 @@ public class HiveMetaStoreBridgeV2 {
                         LOG.error("Could not import table {} from database {} as this does not exist in Hive", tableToImport, databaseName);
                         return false;
                     }
-                    LOG.info("Successfully ingested {} tables from {} database", importedTableCount, databaseName);
+                    if (importedTableCount > 0) {
+                        LOG.info("Successfully ingested {} tables from {} database", importedTableCount, databaseName);
+                    } else {
+                        LOG.info("No tables were imported as none present in {}", databaseName);
+                    }
                 }
             }
 
             // Only relevant if more than 1 database is imported
-            if (databaseNames.size() > 1) {
+            if (databaseNames.size() > 1 && totalImportedTableCount > 0) {
                 LOG.info("Imported {} tables in total across {} databases", totalImportedTableCount, databaseNames.size());
             }
 
@@ -408,7 +417,7 @@ public class HiveMetaStoreBridgeV2 {
             if (StringUtils.isNotEmpty(tblName)) {
                 LOG.error("Table {} does not exist in database {}", tblName, databaseName);
             } else {
-                LOG.error("No tables to import in database {}", databaseName);
+                LOG.info("No tables to import in database {}", databaseName);
             }
         }
 
