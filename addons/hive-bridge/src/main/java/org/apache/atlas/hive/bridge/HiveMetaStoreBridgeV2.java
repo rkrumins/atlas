@@ -143,7 +143,8 @@ public class HiveMetaStoreBridgeV2 {
 
             HiveMetaStoreBridgeV2 hiveMetaStoreBridge = new HiveMetaStoreBridgeV2(atlasConf, new HiveConf(), atlasClientV2);
             if (StringUtils.isEmpty(databaseToImport) && StringUtils.isEmpty(tableToImport) && StringUtils.isEmpty(fileToImport)) {
-                LOG.error("No arguments passed, please specify list of source systems to import in file and -f parameter. Exiting...");
+                LOG.error("No arguments passed, please specify list of source systems to import in file and -f argument.");
+                LOG.info("For further usage please specify -h [--help] argument. Exiting...");
                 System.exit(exitCode);
             }
 
