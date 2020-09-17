@@ -181,7 +181,8 @@ public class HiveMetaStoreBridgeV2 {
                 // Loading metadata from parameters passed
                 boolean successFlag = hiveMetaStoreBridge.importHiveMetadata(databaseToImport, tableToImport, failOnError, true);
                 if (successFlag && StringUtils.isEmpty(tableToImport)) {
-                    LOG.info("Finished loading all metadata for database: {}", databaseToImport);
+                    // Fix issue where null coming up when null is passed in
+                    LOG.info("Finished loading metadata for {}", databaseToImport == null ? "all hive databases" : databaseToImport + " database");
                     exitCode = EXIT_CODE_SUCCESS;
                 } else if (successFlag && StringUtils.isNotEmpty(tableToImport)) {
                     LOG.info("Finished loading metadata for table: {} in database: {}", tableToImport, databaseToImport);
