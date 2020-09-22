@@ -30,6 +30,7 @@ import org.apache.atlas.hook.AtlasHook;
 import org.apache.atlas.hook.AtlasHookException;
 import org.apache.atlas.notification.hook.HookNotification;
 import org.apache.atlas.typesystem.Referenceable;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.fs.Path;
@@ -56,24 +57,12 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.security.PrivilegedExceptionAction;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.SortedMap;
-import java.util.SortedSet;
-import java.util.TreeMap;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -96,7 +85,13 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
     public static final String SEP = ":".intern();
     static final String IO_SEP = "->".intern();
 
+    public static final String HOOK_HIVE_FILTER_ENABLED_FLAG = CONF_PREFIX + "filter.enabled";
+    public static final String HOOK_HIVE_FILTER_FILE_LOCATION = CONF_PREFIX + "filter.file.location";
+    public static final String HOOK_HIVE_FILTER_FILE_NAME = CONF_PREFIX + "filter.file.name";
+
     private static final Map<String, HiveOperation> OPERATION_MAP = new HashMap<>();
+
+    private static final Set<String> VALID_ENTITY_SET = new HashSet<>();
 
     // wait time determines how long we wait before we exit the jvm on
     // shutdown. Pending requests after that will not be sent.
@@ -187,6 +182,15 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
             event.setQueryStr(queryPlan.getQueryStr());
             event.setQueryStartTime(queryPlan.getQueryStartTime());
             event.setLineageInfo(hookContext.getLinfo());
+
+            LOG.info("IMPORTANT: HiveHook Debug Log: All atlas properties initialized", atlasProperties.toString());
+            LOG.info("DEBUG: HiveHook: Source flag filter set to: " + getSourceFilterFlagEnabled());
+            LOG.info("DEBUG: HiveHook: Source entity file location: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION));
+            LOG.info("DEBUG: HiveHook: Source entity filename: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME));
+
+            System.out.println("HiveHook: Source flag filter set to:" + getSourceFilterFlagEnabled());
+            System.out.println("DEBUG: HiveHook: Source entity file location: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION));
+            System.out.println("DEBUG: HiveHook: Source entity filename: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME));
 
             if (executor == null) {
                 collect(event);
@@ -558,11 +562,15 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
             Referenceable dbEntity    = null;
             Referenceable tableEntity = null;
 
-            if (db != null) {
+            Set<String> validEntitySet = getValidHiveEntitySet();
+            System.out.println("DEBUG: Valid entity set printed");
+            System.out.println("DEBUG: " + Arrays.toString(validEntitySet.toArray()));
+
+            if (db != null && getValidEntityFlag(db.getName())) {
                 dbEntity = dgiBridge.createDBInstance(db);
             }
 
-            if (db != null && table != null) {
+            if (db != null && table != null && getValidEntityFlag(db.getName())) {
                 if (existTable != null) {
                     table = existTable;
                 } else {
@@ -582,12 +590,12 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
             LinkedHashMap<Type, Referenceable> result   = new LinkedHashMap<>();
             List<Referenceable>                entities = new ArrayList<>();
 
-            if (dbEntity != null) {
+            if (dbEntity != null && getValidEntityFlag(db.getName())) {
                 result.put(Type.DATABASE, dbEntity);
                 entities.add(dbEntity);
             }
 
-            if (tableEntity != null) {
+            if (tableEntity != null && getValidEntityFlag(db.getName())) {
                 result.put(Type.TABLE, tableEntity);
                 entities.add(tableEntity);
             }
@@ -1072,6 +1080,48 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
             }
         }
         return false;
+    }
+
+    // Get filter enabled flag, if not present, then disabled by default
+    public boolean getSourceFilterFlagEnabled() {
+        boolean sourceFilterFlag = atlasProperties.getBoolean(HOOK_HIVE_FILTER_ENABLED_FLAG, false);
+        LOG.info("HiveHook: Source flag filter set to: " + sourceFilterFlag);
+        LOG.debug("HiveHook: AtlasProperties set to: " + atlasProperties.toString());
+        return sourceFilterFlag;
+    }
+
+    public List<String> loadSourcesConfigFile(String filePath) {
+        LOG.info("HiveHook: Loading source config file");
+        File configFile = new File(filePath);
+        List<String> validEntityList = null;
+        try {
+            validEntityList = FileUtils.readLines(configFile);
+            for (String validEntity : validEntityList) {
+                validEntity.toLowerCase();
+            }
+            LOG.info("HiveHook: Loaded source config file successfully from path: " + filePath);
+        } catch (IOException e) {
+            LOG.error("HiveHook: Issue occurred when parsing source entity list");
+            e.printStackTrace();
+        }
+        return validEntityList;
+    }
+
+    public Set<String> getValidHiveEntitySet() {
+        LOG.info("HiveHook: Source entity file location: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION));
+        LOG.info("HiveHook: Source entity filename: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME));
+        String sourceConfigFilePath = atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION) + File.separator + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME);
+        Set<String> validEntitiesSet = new HashSet<String>(loadSourcesConfigFile(sourceConfigFilePath));
+        LOG.info("Valid entities set to: " + Arrays.toString(validEntitiesSet.toArray()));
+        return validEntitiesSet;
+    }
+
+    // This method checks if database for which event was triggered is a part of databases defined in source database list
+    public boolean getValidEntityFlag(String databaseName) {
+        Set<String> validList = getValidHiveEntitySet();
+        boolean validFlag = validList.contains(databaseName);
+        System.out.println("DEBUG: HiveHook for database " + databaseName + " and flag is set to " + validFlag);
+        return validFlag;
     }
 
     public static class HiveEventContext {
