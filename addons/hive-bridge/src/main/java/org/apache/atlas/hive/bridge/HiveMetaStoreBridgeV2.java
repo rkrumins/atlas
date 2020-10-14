@@ -926,7 +926,7 @@ public class HiveMetaStoreBridgeV2 {
      * @param table hive table for which the qualified name is needed
      * @return Unique qualified name to identify the Table instance in Atlas.
      */
-    private static String getTableQualifiedName(String clusterName, Table table) {
+    public static String getTableQualifiedName(String clusterName, Table table) {
         return getTableQualifiedName(clusterName, table.getDbName(), table.getTableName(), table.isTemporary());
     }
 

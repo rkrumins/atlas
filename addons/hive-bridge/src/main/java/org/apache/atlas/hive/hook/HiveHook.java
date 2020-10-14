@@ -25,6 +25,8 @@ import org.apache.atlas.AtlasClient;
 import org.apache.atlas.AtlasConstants;
 import org.apache.atlas.hive.bridge.ColumnLineageUtils;
 import org.apache.atlas.hive.bridge.HiveMetaStoreBridge;
+import org.apache.atlas.hive.filter.FilterUtils;
+import org.apache.atlas.hive.filter.HadoopFilterClient;
 import org.apache.atlas.hive.model.HiveDataTypes;
 import org.apache.atlas.hook.AtlasHook;
 import org.apache.atlas.hook.AtlasHookException;
@@ -67,6 +69,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * AtlasHook sends lineage information to the AtlasSever.
@@ -88,10 +92,15 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
     public static final String HOOK_HIVE_FILTER_ENABLED_FLAG = CONF_PREFIX + "filter.enabled";
     public static final String HOOK_HIVE_FILTER_FILE_LOCATION = CONF_PREFIX + "filter.file.location";
     public static final String HOOK_HIVE_FILTER_FILE_NAME = CONF_PREFIX + "filter.file.name";
+    public static final String HOOK_HIVE_FILTER_SOURCE = CONF_PREFIX + "filter.source";
+    // Values can be local or hdfs
+    public static final String HOOK_HIVE_FILTER_PATTERN_MATCH_FLAG = CONF_PREFIX + "filter.pattern.match.flag";
+    // Values are for true, false
 
     private static final Map<String, HiveOperation> OPERATION_MAP = new HashMap<>();
 
-    private static final Set<String> VALID_ENTITY_SET = new HashSet<>();
+    private static Set<String> VALID_SOURCE_DATABASES_SET = new HashSet<>();
+    private static List<String> VALID_SOURCES_PATTERN_LIST = new ArrayList<>();
 
     // wait time determines how long we wait before we exit the jvm on
     // shutdown. Pending requests after that will not be sent.
@@ -147,6 +156,18 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
 
         hiveConf = new HiveConf();
 
+        // TO DO: Implement factory pattern for the way source entities are retrieved
+//        HiveClient hiveClient = new HiveClient();
+        HadoopFilterClient hadoopFilterClient = new HadoopFilterClient(
+                atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION),
+                atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME)
+        );
+
+        VALID_SOURCES_PATTERN_LIST = hadoopFilterClient.run();
+        VALID_SOURCE_DATABASES_SET = hadoopFilterClient.getValidSourceSet(VALID_SOURCES_PATTERN_LIST);
+
+        System.out.println("DEBUG: Valid entity list: " + Arrays.toString(VALID_SOURCES_PATTERN_LIST.toArray()));
+
         LOG.info("Created Atlas Hook");
     }
 
@@ -188,9 +209,9 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
             LOG.info("DEBUG: HiveHook: Source entity file location: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION));
             LOG.info("DEBUG: HiveHook: Source entity filename: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME));
 
-            System.out.println("HiveHook: Source flag filter set to:" + getSourceFilterFlagEnabled());
-            System.out.println("DEBUG: HiveHook: Source entity file location: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION));
-            System.out.println("DEBUG: HiveHook: Source entity filename: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME));
+//            System.out.println("HiveHook: Source flag filter set to: " + getSourceFilterFlagEnabled());
+//            System.out.println("DEBUG: HiveHook: Source entity file location: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION));
+//            System.out.println("DEBUG: HiveHook: Source entity filename: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME));
 
             if (executor == null) {
                 collect(event);
@@ -562,27 +583,50 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
             Referenceable dbEntity    = null;
             Referenceable tableEntity = null;
 
-            Set<String> validEntitySet = getValidHiveEntitySet();
-            System.out.println("DEBUG: Valid entity set printed");
-            System.out.println("DEBUG: " + Arrays.toString(validEntitySet.toArray()));
+            boolean filterEnabledFlag = getSourceFilterFlagEnabled();
+//            System.out.println("DEBUG: Source filter flag is set to " + filterEnabledFlag);
 
-            if (db != null && getValidEntityFlag(db.getName())) {
-                dbEntity = dgiBridge.createDBInstance(db);
-            }
+            if (filterEnabledFlag) {
 
-            if (db != null && table != null && getValidEntityFlag(db.getName())) {
-                if (existTable != null) {
-                    table = existTable;
-                } else {
-                    table = refreshTable(dgiBridge, table.getDbName(), table.getTableName());
+                if (db != null && FilterUtils.checkIfDatabaseIsOfValidRegexPattern(db.getName(), VALID_SOURCES_PATTERN_LIST)) {
+//                    System.out.println("Filtering enabled and database " + db.getName() + " is a valid entity, adding to Atlas...");
+                    dbEntity = dgiBridge.createDBInstance(db);
                 }
 
-                if (table != null) {
-                    // If its an external table, even though the temp table skip flag is on, we create the table since we need the HDFS path to temp table lineage.
-                    if (skipTempTables && table.isTemporary() && !TableType.EXTERNAL_TABLE.equals(table.getTableType())) {
-                        LOG.warn("Skipping temporary table registration {} since it is not an external table {} ", table.getTableName(), table.getTableType().name());
+                if (db != null && table != null && FilterUtils.checkIfDatabaseIsOfValidRegexPattern(db.getName(), VALID_SOURCES_PATTERN_LIST)) {
+                    if (existTable != null) {
+                        table = existTable;
                     } else {
-                        tableEntity = dgiBridge.createTableInstance(dbEntity, table);
+                        table = refreshTable(dgiBridge, table.getDbName(), table.getTableName());
+                    }
+
+                    if (table != null) {
+                        // If its an external table, even though the temp table skip flag is on, we create the table since we need the HDFS path to temp table lineage.
+                        if (skipTempTables && table.isTemporary() && !TableType.EXTERNAL_TABLE.equals(table.getTableType())) {
+                            LOG.warn("Skipping temporary table registration {} since it is not an external table {} ", table.getTableName(), table.getTableType().name());
+                        } else {
+                            tableEntity = dgiBridge.createTableInstance(dbEntity, table);
+                        }
+                    }
+                }
+
+            } else {
+                dbEntity = dgiBridge.createDBInstance(db);
+
+                if (db != null && table != null) {
+                    if (existTable != null) {
+                        table = existTable;
+                    } else {
+                        table = refreshTable(dgiBridge, table.getDbName(), table.getTableName());
+                    }
+
+                    if (table != null) {
+                        // If its an external table, even though the temp table skip flag is on, we create the table since we need the HDFS path to temp table lineage.
+                        if (skipTempTables && table.isTemporary() && !TableType.EXTERNAL_TABLE.equals(table.getTableType())) {
+                            LOG.warn("Skipping temporary table registration {} since it is not an external table {} ", table.getTableName(), table.getTableType().name());
+                        } else {
+                            tableEntity = dgiBridge.createTableInstance(dbEntity, table);
+                        }
                     }
                 }
             }
@@ -590,12 +634,12 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
             LinkedHashMap<Type, Referenceable> result   = new LinkedHashMap<>();
             List<Referenceable>                entities = new ArrayList<>();
 
-            if (dbEntity != null && getValidEntityFlag(db.getName())) {
+            if (dbEntity != null) {
                 result.put(Type.DATABASE, dbEntity);
                 entities.add(dbEntity);
             }
 
-            if (tableEntity != null && getValidEntityFlag(db.getName())) {
+            if (tableEntity != null) {
                 result.put(Type.TABLE, tableEntity);
                 entities.add(tableEntity);
             }
@@ -1090,39 +1134,58 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
         return sourceFilterFlag;
     }
 
-    public List<String> loadSourcesConfigFile(String filePath) {
-        LOG.info("HiveHook: Loading source config file");
-        File configFile = new File(filePath);
-        List<String> validEntityList = null;
-        try {
-            validEntityList = FileUtils.readLines(configFile);
-            for (String validEntity : validEntityList) {
-                validEntity.toLowerCase();
-            }
-            LOG.info("HiveHook: Loaded source config file successfully from path: " + filePath);
-        } catch (IOException e) {
-            LOG.error("HiveHook: Issue occurred when parsing source entity list");
-            e.printStackTrace();
-        }
-        return validEntityList;
-    }
+//    public List<String> loadSourcesConfigFile(String filePath) {
+//        LOG.info("HiveHook: Loading source config file");
+//        File configFile = new File(filePath);
+//        List<String> validEntityList = null;
+//        try {
+//            validEntityList = FileUtils.readLines(configFile);
+//            for (String validEntity : validEntityList) {
+//                validEntity.toLowerCase();
+//            }
+//            LOG.info("HiveHook: Loaded source config file successfully from path: " + filePath);
+//        } catch (IOException e) {
+//            LOG.error("HiveHook: Issue occurred when parsing source entity list");
+//            e.printStackTrace();
+//        }
+//        return validEntityList;
+//    }
+//
+//    public Set<String> getValidHiveEntitySet() {
+//        LOG.info("HiveHook: Source entity file location: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION));
+//        LOG.info("HiveHook: Source entity filename: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME));
+//        String sourceConfigFilePath = atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION) + File.separator + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME);
+//        Set<String> validEntitiesSet = new HashSet<String>(loadSourcesConfigFile(sourceConfigFilePath));
+//        LOG.info("Valid entities set to: " + Arrays.toString(validEntitiesSet.toArray()));
+//        return validEntitiesSet;
+//    }
 
-    public Set<String> getValidHiveEntitySet() {
-        LOG.info("HiveHook: Source entity file location: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION));
-        LOG.info("HiveHook: Source entity filename: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME));
-        String sourceConfigFilePath = atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION) + File.separator + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME);
-        Set<String> validEntitiesSet = new HashSet<String>(loadSourcesConfigFile(sourceConfigFilePath));
-        LOG.info("Valid entities set to: " + Arrays.toString(validEntitiesSet.toArray()));
-        return validEntitiesSet;
-    }
-
-    // This method checks if database for which event was triggered is a part of databases defined in source database list
-    public boolean getValidEntityFlag(String databaseName) {
-        Set<String> validList = getValidHiveEntitySet();
-        boolean validFlag = validList.contains(databaseName);
-        System.out.println("DEBUG: HiveHook for database " + databaseName + " and flag is set to " + validFlag);
-        return validFlag;
-    }
+//    // This method checks if database for which event was triggered is a part of databases defined in source database list
+//    public boolean getValidEntityFlag(String databaseName) {
+////        Set<String> validList = getValidHiveEntitySet();
+//
+//        boolean validFlag = VALID_SOURCE_DATABASES_SET.contains(databaseName);
+////        System.out.println("DEBUG: HiveHook for database " + databaseName + " valid entity flag is set to " + validFlag);
+//        return validFlag;
+//    }
+//
+//    public boolean getValidMatchForRegexPattern(String databaseName, String regexPattern) {
+//        Pattern pattern = Pattern.compile(regexPattern, Pattern.MULTILINE);
+//        Matcher matcher = pattern.matcher(databaseName);
+//        return matcher.matches();
+//    }
+//
+//    public boolean checkIfDatabaseIsOfValidRegexPattern(String databaseName, List<String> regexPatterns) {
+//        boolean validPatternFlag = false;
+//
+//        for (String regexPattern: regexPatterns) {
+//            if (getValidMatchForRegexPattern(databaseName, regexPattern)) {
+//                validPatternFlag = true;
+//                break;
+//            }
+//        }
+//        return validPatternFlag;
+//    }
 
     public static class HiveEventContext {
         private Set<ReadEntity> inputs;
