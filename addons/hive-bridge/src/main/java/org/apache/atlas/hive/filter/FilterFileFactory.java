@@ -17,18 +17,24 @@
  */
 package org.apache.atlas.hive.filter;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class FilterFileFactory {
+    private static final Logger LOG = LoggerFactory.getLogger(FilterFileFactory.class);
 
     //use getShape method to get object of type shape
-    public FilterFileClient getValidSources(String clientType, String filterFileLocation, String filterFileName){
-        if(clientType == null){
+    public FilterFileClient getValidSources(String fileClientType, String filterFileLocation, String filterFileName){
+        if (fileClientType == null) {
             return null;
         }
-        if(clientType.equalsIgnoreCase("hdfs")){
+        if (fileClientType.equalsIgnoreCase("hdfs")) {
             return new HadoopFileClient(filterFileLocation, filterFileName);
 
-        } else if(clientType.equalsIgnoreCase("local")){
+        } else if (fileClientType.equalsIgnoreCase("local")) {
             return new LocalFileClient(filterFileLocation, filterFileName);
+        } else {
+            LOG.error("Could not initialize FilterFileClient fileClientType does not match any of available ones");
         }
 
         return null;
