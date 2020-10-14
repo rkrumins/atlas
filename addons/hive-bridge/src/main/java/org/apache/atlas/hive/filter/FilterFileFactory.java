@@ -17,20 +17,20 @@
  */
 package org.apache.atlas.hive.filter;
 
-import java.util.List;
+public class FilterFileFactory {
 
-public class LocalFilterClient implements FilterStorageClient {
+    //use getShape method to get object of type shape
+    public FilterFileClient getValidSources(String clientType, String filterFileLocation, String filterFileName){
+        if(clientType == null){
+            return null;
+        }
+        if(clientType.equalsIgnoreCase("hdfs")){
+            return new HadoopFileClient(filterFileLocation, filterFileName);
 
-    public String filterFileLocation;
-    public String filterFileName;
+        } else if(clientType.equalsIgnoreCase("local")){
+            return new LocalFileClient(filterFileLocation, filterFileName);
+        }
 
-    public LocalFilterClient(String filterFileLocation, String filterFileName) {
-        this.filterFileLocation = filterFileLocation;
-        this.filterFileName = filterFileName;
-    }
-
-    @Override
-    public List<String> getValidSources() {
         return null;
     }
 }

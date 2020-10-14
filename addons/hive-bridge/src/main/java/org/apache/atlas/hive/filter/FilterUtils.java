@@ -18,6 +18,7 @@
 package org.apache.atlas.hive.filter;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.hive.ql.metadata.Hive;
 import org.apache.hadoop.hive.ql.metadata.HiveException;
@@ -27,6 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -58,38 +60,35 @@ public final class FilterUtils {
         return validEntityList;
     }
 
-    public static Set<String> getValidHiveEntitySet(List<String> validEntitiesList) {
+    public static Set<String> getValidEntitySetFromList(List<String> validEntitiesList) {
         return new HashSet<String>(validEntitiesList);
     }
 
-    public static List<String> getValidEntityList(List<String> validEntitiesList, boolean patternEnabled) {
-        // support patterns like:
-        // hub_gb*
-        // hub_in*
-        // hub_en_2020*
-        // hub_*_2020*
-        return null;
+//    public static boolean getValidMatchForRegexPattern(String databaseName, String regexPattern) {
+//        Pattern pattern = Pattern.compile(regexPattern, Pattern.MULTILINE);
+//        Matcher matcher = pattern.matcher(databaseName);
+//        return matcher.matches();
+//    }
+//
+//    public static boolean checkIfDatabaseIsOfValidRegexPattern(String databaseName, List<String> regexPatterns) {
+//        boolean validPatternFlag = false;
+//
+//        for (String regexPattern: regexPatterns) {
+//            if (getValidMatchForRegexPattern(databaseName, regexPattern)) {
+//                validPatternFlag = true;
+//                break;
+//            }
+//        }
+//        return validPatternFlag;
+//    }
+
+    public static String constructValidPath(String filterFileLocation, String filterFileName) {
+        String fullFilterFilePathString = FilenameUtils.concat(filterFileLocation, filterFileName);
+        LOG.debug("Full path constructed {}", fullFilterFilePathString);
+        return fullFilterFilePathString;
     }
 
-    public static boolean getValidMatchForRegexPattern(String databaseName, String regexPattern) {
-        Pattern pattern = Pattern.compile(regexPattern, Pattern.MULTILINE);
-        Matcher matcher = pattern.matcher(databaseName);
-        return matcher.matches();
-    }
-
-    public static boolean checkIfDatabaseIsOfValidRegexPattern(String databaseName, List<String> regexPatterns) {
-        boolean validPatternFlag = false;
-
-        for (String regexPattern: regexPatterns) {
-            if (getValidMatchForRegexPattern(databaseName, regexPattern)) {
-                validPatternFlag = true;
-                break;
-            }
-        }
-        return validPatternFlag;
-    }
-
-    public static Set<String> getValidHiveEntitySet(String filterFileLocation, String filterFileName) {
+    public static Set<String> getValidEntitySetFromList(String filterFileLocation, String filterFileName) {
         LOG.info("HiveHook: Source entity file location: " + filterFileLocation);
         LOG.info("HiveHook: Source entity filename: " + filterFileName);
         String sourceConfigFilePath = filterFileLocation + File.separator + filterFileName;
@@ -102,7 +101,7 @@ public final class FilterUtils {
     public static boolean getValidEntityFlag(String databaseName) {
         String filterFileFolderLocation = "";
         String filterFileName = "";
-        Set<String> validList = getValidHiveEntitySet(filterFileFolderLocation, filterFileName);
+        Set<String> validList = getValidEntitySetFromList(filterFileFolderLocation, filterFileName);
         boolean validFlag = validList.contains(databaseName);
 //        System.out.println("DEBUG: HiveHook for database " + databaseName + " valid entity flag is set to " + validFlag);
         return validFlag;

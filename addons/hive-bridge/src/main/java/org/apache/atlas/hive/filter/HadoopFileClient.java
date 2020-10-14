@@ -29,21 +29,20 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
 
 /**
  * This is Hadoop Client for reading source entities list from Hadoop Distributed File System (HDFS)
  */
-public class HadoopFilterClient implements FilterStorageClient {
+public class HadoopFileClient implements FilterFileClient {
 
     public String filterFileLocation;
     public String filterFileName;
 
-    private static final Logger LOG = LoggerFactory.getLogger(HadoopFilterClient.class);
+    private static final Logger LOG = LoggerFactory.getLogger(HadoopFileClient.class);
 
     private static final String HADOOP_CONF_DIR = System.getenv("HADOOP_CONF_DIR");
 
-    public HadoopFilterClient(String filterFileLocation, String filterFileName) {
+    public HadoopFileClient(String filterFileLocation, String filterFileName) {
         this.filterFileLocation = filterFileLocation;
         this.filterFileName = filterFileName;
     }
@@ -93,6 +92,7 @@ public class HadoopFilterClient implements FilterStorageClient {
             inputStream.close();
             fs.close();
         } catch (IOException e) {
+            LOG.error("Failed to load file from HDFS at this path {}/{}", filterFileLocation, filterFileName);
             e.printStackTrace();
         }
 
@@ -100,6 +100,8 @@ public class HadoopFilterClient implements FilterStorageClient {
             LOG.debug("Valid Entities List size " + validEntitiesListFromFile.size());
             LOG.debug("Valid Entities List contents below: ");
             LOG.debug(Arrays.toString(validEntitiesListFromFile.toArray()));
+        } else {
+            LOG.error("List is empty for valid entities");
         }
 
         return validEntitiesListFromFile;

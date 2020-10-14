@@ -22,7 +22,7 @@ import java.util.List;
 /**
  * This is a generic client interface for obtaining source entities list
  **/
-public interface FilterStorageClient {
+public interface FilterFileClient {
 
     List<String> getValidSources();
 }
