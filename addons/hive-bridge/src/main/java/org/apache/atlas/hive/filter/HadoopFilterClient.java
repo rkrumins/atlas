@@ -28,14 +28,13 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 /**
  * This is Hadoop Client for reading source entities list from Hadoop Distributed File System (HDFS)
  */
-public class HadoopFilterClient {
+public class HadoopFilterClient implements FilterStorageClient {
 
     public String filterFileLocation;
     public String filterFileName;
@@ -55,9 +54,19 @@ public class HadoopFilterClient {
 //        conf.addResource(new Path("file://" + HADOOP_CONF_DIR + "/hdfs-site.xml"));
 //        return conf;
 //    }
+//
+//    public List<String> run() {
+//
+//    }
 
-    public List<String> run() {
+//    public Set<String> getValidSourceSet(List<String> validEntitiesListFromFile) {
+//        Set<String> validHiveDatabaseEntitiesSet = FilterUtils.getValidHiveEntitySet(validEntitiesListFromFile);
+//        LOG.info("Valid source entities set is created");
+//        return validHiveDatabaseEntitiesSet;
+//    }
 
+    @Override
+    public List<String> getValidSources() {
         LOG.debug("HADOOP_CONF_DIR value is set to " + HADOOP_CONF_DIR);
 
         // Initialise Hadoop Configuration
@@ -94,11 +103,5 @@ public class HadoopFilterClient {
         }
 
         return validEntitiesListFromFile;
-    }
-
-    public Set<String> getValidSourceSet(List<String> validEntitiesListFromFile) {
-        Set<String> validHiveDatabaseEntitiesSet = FilterUtils.getValidHiveEntitySet(validEntitiesListFromFile);
-        LOG.info("Valid source entities set is created");
-        return validHiveDatabaseEntitiesSet;
     }
 }

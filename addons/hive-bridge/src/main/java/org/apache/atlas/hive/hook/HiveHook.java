@@ -25,6 +25,8 @@ import org.apache.atlas.AtlasClient;
 import org.apache.atlas.AtlasConstants;
 import org.apache.atlas.hive.bridge.ColumnLineageUtils;
 import org.apache.atlas.hive.bridge.HiveMetaStoreBridge;
+import org.apache.atlas.hive.filter.FilterFileFactory;
+import org.apache.atlas.hive.filter.FilterStorageClient;
 import org.apache.atlas.hive.filter.FilterUtils;
 import org.apache.atlas.hive.filter.HadoopFilterClient;
 import org.apache.atlas.hive.model.HiveDataTypes;
@@ -94,7 +96,7 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
     public static final String HOOK_HIVE_FILTER_FILE_NAME = CONF_PREFIX + "filter.file.name";
     public static final String HOOK_HIVE_FILTER_SOURCE = CONF_PREFIX + "filter.source";
     // Values can be local or hdfs
-    public static final String HOOK_HIVE_FILTER_PATTERN_MATCH_FLAG = CONF_PREFIX + "filter.pattern.match.flag";
+    public static final String HOOK_HIVE_FILTER_PATTERN_MATCH_FLAG = CONF_PREFIX + "filter.pattern.match";
     // Values are for true, false
 
     private static final Map<String, HiveOperation> OPERATION_MAP = new HashMap<>();
@@ -157,14 +159,15 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
         hiveConf = new HiveConf();
 
         // TO DO: Implement factory pattern for the way source entities are retrieved
-//        HiveClient hiveClient = new HiveClient();
-        HadoopFilterClient hadoopFilterClient = new HadoopFilterClient(
+        FilterFileFactory filterFileFactory = new FilterFileFactory();
+        FilterStorageClient filterStorageClient = filterFileFactory.getValidSources(
+                "hdfs",
                 atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION),
                 atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME)
         );
 
-        VALID_SOURCES_PATTERN_LIST = hadoopFilterClient.run();
-        VALID_SOURCE_DATABASES_SET = hadoopFilterClient.getValidSourceSet(VALID_SOURCES_PATTERN_LIST);
+        VALID_SOURCES_PATTERN_LIST = filterStorageClient.getValidSources();
+        VALID_SOURCE_DATABASES_SET = FilterUtils.getValidHiveEntitySet(VALID_SOURCES_PATTERN_LIST);
 
         System.out.println("DEBUG: Valid entity list: " + Arrays.toString(VALID_SOURCES_PATTERN_LIST.toArray()));
 
@@ -1133,59 +1136,6 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
         LOG.debug("HiveHook: AtlasProperties set to: " + atlasProperties.toString());
         return sourceFilterFlag;
     }
-
-//    public List<String> loadSourcesConfigFile(String filePath) {
-//        LOG.info("HiveHook: Loading source config file");
-//        File configFile = new File(filePath);
-//        List<String> validEntityList = null;
-//        try {
-//            validEntityList = FileUtils.readLines(configFile);
-//            for (String validEntity : validEntityList) {
-//                validEntity.toLowerCase();
-//            }
-//            LOG.info("HiveHook: Loaded source config file successfully from path: " + filePath);
-//        } catch (IOException e) {
-//            LOG.error("HiveHook: Issue occurred when parsing source entity list");
-//            e.printStackTrace();
-//        }
-//        return validEntityList;
-//    }
-//
-//    public Set<String> getValidHiveEntitySet() {
-//        LOG.info("HiveHook: Source entity file location: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION));
-//        LOG.info("HiveHook: Source entity filename: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME));
-//        String sourceConfigFilePath = atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION) + File.separator + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME);
-//        Set<String> validEntitiesSet = new HashSet<String>(loadSourcesConfigFile(sourceConfigFilePath));
-//        LOG.info("Valid entities set to: " + Arrays.toString(validEntitiesSet.toArray()));
-//        return validEntitiesSet;
-//    }
-
-//    // This method checks if database for which event was triggered is a part of databases defined in source database list
-//    public boolean getValidEntityFlag(String databaseName) {
-////        Set<String> validList = getValidHiveEntitySet();
-//
-//        boolean validFlag = VALID_SOURCE_DATABASES_SET.contains(databaseName);
-////        System.out.println("DEBUG: HiveHook for database " + databaseName + " valid entity flag is set to " + validFlag);
-//        return validFlag;
-//    }
-//
-//    public boolean getValidMatchForRegexPattern(String databaseName, String regexPattern) {
-//        Pattern pattern = Pattern.compile(regexPattern, Pattern.MULTILINE);
-//        Matcher matcher = pattern.matcher(databaseName);
-//        return matcher.matches();
-//    }
-//
-//    public boolean checkIfDatabaseIsOfValidRegexPattern(String databaseName, List<String> regexPatterns) {
-//        boolean validPatternFlag = false;
-//
-//        for (String regexPattern: regexPatterns) {
-//            if (getValidMatchForRegexPattern(databaseName, regexPattern)) {
-//                validPatternFlag = true;
-//                break;
-//            }
-//        }
-//        return validPatternFlag;
-//    }
 
     public static class HiveEventContext {
         private Set<ReadEntity> inputs;

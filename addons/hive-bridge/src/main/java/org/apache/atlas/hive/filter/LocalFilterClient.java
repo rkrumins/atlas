@@ -17,8 +17,20 @@
  */
 package org.apache.atlas.hive.filter;
 
-/**
- * This is a generic client interface for obtaining source entities list
- **/
-public interface Client {
+import java.util.List;
+
+public class LocalFilterClient implements FilterStorageClient {
+
+    public String filterFileLocation;
+    public String filterFileName;
+
+    public LocalFilterClient(String filterFileLocation, String filterFileName) {
+        this.filterFileLocation = filterFileLocation;
+        this.filterFileName = filterFileName;
+    }
+
+    @Override
+    public List<String> getValidSources() {
+        return null;
+    }
 }
