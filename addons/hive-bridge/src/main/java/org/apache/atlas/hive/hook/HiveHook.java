@@ -87,16 +87,11 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
 
     public static final String HOOK_HIVE_FILTER_ENABLED_FLAG = CONF_PREFIX + "filter.enabled";
     public static final String HOOK_HIVE_FILTER_SOURCE_FILE_FILESYSTEM = CONF_PREFIX + "filter.file.filesystem";
-    // Values can be local or hdfs
     public static final String HOOK_HIVE_FILTER_FILE_LOCATION = CONF_PREFIX + "filter.file.location";
     public static final String HOOK_HIVE_FILTER_FILE_NAME = CONF_PREFIX + "filter.file.name";
     public static final String HOOK_HIVE_FILTER_PATTERN_MATCH_FLAG = CONF_PREFIX + "filter.pattern.match";
-    // Values are for true, false
 
     private static final Map<String, HiveOperation> OPERATION_MAP = new HashMap<>();
-
-    private static Set<String> VALID_SOURCE_DATABASES_SET = new HashSet<>();
-    private static List<String> VALID_SOURCES_PATTERN_LIST = new ArrayList<>();
 
     private static FilterOperationContext filterOperationContext;
 
@@ -157,6 +152,13 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
         String defaultFilterFileClient = "hdfs";
         FilterFileFactory filterFileFactory = new FilterFileFactory();
 
+
+        LOG.info("Filter file for Atlas Hive Hook at this path {}/{} is being loaded from {} filesystem",
+                atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION),
+                atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME),
+                atlasProperties.getString(HOOK_HIVE_FILTER_SOURCE_FILE_FILESYSTEM)
+        );
+
         // Load implementation of filterStorageClient, default is HDFS as defined above
         FilterFileClient filterFileClient = filterFileFactory.getValidSources(
                 atlasProperties.getString(HOOK_HIVE_FILTER_SOURCE_FILE_FILESYSTEM, defaultFilterFileClient),
@@ -166,19 +168,22 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
 
         boolean patternMatchFlag = atlasProperties.getBoolean(HOOK_HIVE_FILTER_PATTERN_MATCH_FLAG);
 
-        VALID_SOURCES_PATTERN_LIST = filterFileClient.getValidSources();
-        LOG.debug("Valid entity list: " + Arrays.toString(VALID_SOURCES_PATTERN_LIST.toArray()));
+        List<String> validSourcesPatternList = filterFileClient.getValidSources();
+        LOG.debug("Valid entity list for Atlas Hive Hook: {}", Arrays.toString(validSourcesPatternList.toArray()));
+        LOG.debug("Filtering for Atlas Hive Hook is set to {}", atlasProperties.getBoolean(HOOK_HIVE_FILTER_ENABLED_FLAG));
+        LOG.debug("Pattern matching for Atlas Hive Hook is set to {}", patternMatchFlag);
 
         if (patternMatchFlag) {
             // This loads the behaviour where list of Regex expressions is used to evaluate if database is valid
             // based on naming pattern, for example if my_db follows the given pattern ([a-z]{2,})_[a-z]{2,}
-            filterOperationContext = new FilterOperationContext(new PatternFilterOperation(VALID_SOURCES_PATTERN_LIST));
+            LOG.info("Pattern matching filter strategy is loaded for Atlas Hive Hook");
+            filterOperationContext = new FilterOperationContext(new PatternFilterOperation(validSourcesPatternList));
         } else {
             // This loads the behaviour where list of source databases is used, thus each database must be defined
             // before and must match as is, for example my_db must be defined in the valid sources list
-            VALID_SOURCE_DATABASES_SET = FilterUtils.getValidEntitySetFromList(VALID_SOURCES_PATTERN_LIST);
-            LOG.debug("Valid entity set {}", Arrays.toString(VALID_SOURCES_PATTERN_LIST.toArray()));
-            filterOperationContext = new FilterOperationContext(new SourcesSetOperation((VALID_SOURCE_DATABASES_SET)));
+            Set<String> validSourceDatabasesSet = FilterUtils.getValidEntitySetFromList(validSourcesPatternList);
+            LOG.info("Valid entity set for Atlas Hive Hook: {}", Arrays.toString(validSourcesPatternList.toArray()));
+            filterOperationContext = new FilterOperationContext(new SourcesSetOperation((validSourceDatabasesSet)));
         }
 
         LOG.info("Created Atlas Hook");
@@ -216,15 +221,6 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
             event.setQueryStr(queryPlan.getQueryStr());
             event.setQueryStartTime(queryPlan.getQueryStartTime());
             event.setLineageInfo(hookContext.getLinfo());
-
-            LOG.info("IMPORTANT: HiveHook Debug Log: All atlas properties initialized", atlasProperties.toString());
-            LOG.info("DEBUG: HiveHook: Source flag filter set to: " + getSourceFilterEnabledFlag());
-            LOG.info("DEBUG: HiveHook: Source entity file location: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION));
-            LOG.info("DEBUG: HiveHook: Source entity filename: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME));
-
-//            System.out.println("HiveHook: Source flag filter set to: " + getSourceFilterFlagEnabled());
-//            System.out.println("DEBUG: HiveHook: Source entity file location: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION));
-//            System.out.println("DEBUG: HiveHook: Source entity filename: " + atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME));
 
             if (executor == null) {
                 collect(event);
@@ -602,7 +598,7 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
                 // This condition applies when filtering is enabled
 
                 if (db != null && filterOperationContext.evaluateStrategy(db.getName())) {
-//                    System.out.println("Filtering enabled and database " + db.getName() + " is a valid entity, adding to Atlas...");
+                    LOG.debug("Filtering for Atlas Hive Hook is enabled and database {} is a valid entity, adding to Atlas...", db.getName());
                     dbEntity = dgiBridge.createDBInstance(db);
                 }
 
@@ -622,10 +618,6 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
                         }
                     }
                 }
-//            } else if (filterEnabledFlag && !patternMatchEnabledFlag) {
-                // This condition applies when filtering is enabled and only source systems by exact name are allowed
-                // to be loaded in Atlas
-
             } else {
                 dbEntity = dgiBridge.createDBInstance(db);
 

@@ -17,7 +17,6 @@
  */
 package org.apache.atlas.hive.filter;
 
-import org.apache.atlas.hive.hook.HiveHook;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +25,9 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
+/**
+ * This is Local File System Client for reading source entities list from local filesystem on the node
+ */
 public class LocalFileClient implements FilterFileClient {
 
     private static final Logger LOG = LoggerFactory.getLogger(LocalFileClient.class);
@@ -39,17 +41,14 @@ public class LocalFileClient implements FilterFileClient {
     }
 
     public static List<String> loadSourcesConfigFile(String filePath) {
-        LOG.info("HiveHook: Loading source config file");
+        LOG.info("Loading source config file for Atlas Hive Hook");
         File configFile = new File(filePath);
         List<String> validEntityList = null;
         try {
             validEntityList = FileUtils.readLines(configFile);
-            for (String validEntity : validEntityList) {
-                validEntity.toLowerCase();
-            }
-            LOG.info("LocalFileClient: Loaded source config file successfully from path: " + filePath);
+            LOG.info("Loaded source config file successfully from path {} on local filesystem", filePath);
         } catch (IOException e) {
-            LOG.error("LocalFileClient: Issue occurred when parsing source entity list");
+            LOG.error("Issue occurred when parsing source entity list from local filesystem");
             e.printStackTrace();
         }
         return validEntityList;
@@ -58,6 +57,7 @@ public class LocalFileClient implements FilterFileClient {
     @Override
     public List<String> getValidSources() {
         String fullFilePath = FilterUtils.constructValidPath(filterFileLocation, filterFileName);
+        LOG.info("Sources file for Atlas Hive Hook will be loaded from {} path from local filesystem", fullFilePath);
         return loadSourcesConfigFile(fullFilePath);
     }
 }

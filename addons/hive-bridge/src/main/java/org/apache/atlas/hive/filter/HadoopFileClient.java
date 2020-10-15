@@ -31,10 +31,9 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * This is Hadoop Client for reading source entities list from Hadoop Distributed File System (HDFS)
+ * This is Hadoop File System Client for reading source entities list from Hadoop Distributed File System (HDFS)
  */
 public class HadoopFileClient implements FilterFileClient {
-
     public String filterFileLocation;
     public String filterFileName;
 
@@ -53,16 +52,6 @@ public class HadoopFileClient implements FilterFileClient {
 //        conf.addResource(new Path("file://" + HADOOP_CONF_DIR + "/hdfs-site.xml"));
 //        return conf;
 //    }
-//
-//    public List<String> run() {
-//
-//    }
-
-//    public Set<String> getValidSourceSet(List<String> validEntitiesListFromFile) {
-//        Set<String> validHiveDatabaseEntitiesSet = FilterUtils.getValidHiveEntitySet(validEntitiesListFromFile);
-//        LOG.info("Valid source entities set is created");
-//        return validHiveDatabaseEntitiesSet;
-//    }
 
     @Override
     public List<String> getValidSources() {
@@ -79,15 +68,17 @@ public class HadoopFileClient implements FilterFileClient {
             // Get the HDFS filesystem
             FileSystem fs = FileSystem.get(conf);
 
-            LOG.info("Reading file from hdfs");
+            LOG.debug("Reading file from hdfs");
 
-            Path hdfsPath = new Path(filterFileLocation + "/" + filterFileName);
-            System.out.println("HDFS path set to " + hdfsPath.toString());
+            String fullPathString = FilterUtils.constructValidPath(filterFileLocation, filterFileName);
+            Path hdfsPath = new Path(fullPathString);
+            LOG.info("Full path on HDFS set to for Atlas Hive Hook filter file {}", hdfsPath.toString());
 
             //Init input stream
             FSDataInputStream inputStream = fs.open(hdfsPath);
 
             validEntitiesListFromFile = IOUtils.readLines(inputStream, StandardCharsets.UTF_8);
+            LOG.debug("Loaded filter file for Atlas Hive Hook from HDFS with {} items in valid entities list", validEntitiesListFromFile.size());
 
             inputStream.close();
             fs.close();
@@ -97,8 +88,8 @@ public class HadoopFileClient implements FilterFileClient {
         }
 
         if (validEntitiesListFromFile != null) {
-            LOG.debug("Valid Entities List size " + validEntitiesListFromFile.size());
-            LOG.debug("Valid Entities List contents below: ");
+            LOG.debug("Valid entities list size " + validEntitiesListFromFile.size());
+            LOG.debug("Valid entities list contents below: ");
             LOG.debug(Arrays.toString(validEntitiesListFromFile.toArray()));
         } else {
             LOG.error("List is empty for valid entities");

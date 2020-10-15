@@ -20,21 +20,27 @@ package org.apache.atlas.hive.filter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * This class is for filter file factory.
+ * Filter file will be loaded from the source based on the configuration.
+ **/
 public class FilterFileFactory {
     private static final Logger LOG = LoggerFactory.getLogger(FilterFileFactory.class);
 
-    //use getShape method to get object of type shape
     public FilterFileClient getValidSources(String fileClientType, String filterFileLocation, String filterFileName){
         if (fileClientType == null) {
+            LOG.error("No implementation for source system for filter file can be obtained as fileClientType is null");
             return null;
         }
         if (fileClientType.equalsIgnoreCase("hdfs")) {
+            LOG.info("Filter file is being loaded from HDFS file system");
             return new HadoopFileClient(filterFileLocation, filterFileName);
 
         } else if (fileClientType.equalsIgnoreCase("local")) {
+            LOG.info("Filter file is being loaded from local file system");
             return new LocalFileClient(filterFileLocation, filterFileName);
         } else {
-            LOG.error("Could not initialize FilterFileClient fileClientType does not match any of available ones");
+            LOG.error("Could not initialize implementation for FilterFileClient as fileClientType does not match any of existing implementations");
         }
 
         return null;
