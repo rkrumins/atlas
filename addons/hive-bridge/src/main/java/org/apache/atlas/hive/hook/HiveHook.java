@@ -159,19 +159,20 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
                 atlasProperties.getString(HOOK_HIVE_FILTER_SOURCE_FILE_FILESYSTEM)
         );
 
-        // Load implementation of filterStorageClient, default is HDFS as defined above
+        // Load implementation of filterFileClient, default is HDFS as defined above therefore loaded from HDFS by default
         FilterFileClient filterFileClient = filterFileFactory.getValidSources(
                 atlasProperties.getString(HOOK_HIVE_FILTER_SOURCE_FILE_FILESYSTEM, defaultFilterFileClient),
                 atlasProperties.getString(HOOK_HIVE_FILTER_FILE_LOCATION),
                 atlasProperties.getString(HOOK_HIVE_FILTER_FILE_NAME)
         );
 
+        LOG.debug("Filtering for Atlas Hive Hook is set to {}", atlasProperties.getBoolean(HOOK_HIVE_FILTER_ENABLED_FLAG));
+
         boolean patternMatchFlag = atlasProperties.getBoolean(HOOK_HIVE_FILTER_PATTERN_MATCH_FLAG);
+        LOG.debug("Pattern matching for Atlas Hive Hook is set to {}", patternMatchFlag);
 
         List<String> validSourcesPatternList = filterFileClient.getValidSources();
         LOG.debug("Valid entity list for Atlas Hive Hook: {}", Arrays.toString(validSourcesPatternList.toArray()));
-        LOG.debug("Filtering for Atlas Hive Hook is set to {}", atlasProperties.getBoolean(HOOK_HIVE_FILTER_ENABLED_FLAG));
-        LOG.debug("Pattern matching for Atlas Hive Hook is set to {}", patternMatchFlag);
 
         if (patternMatchFlag) {
             // This loads the behaviour where list of Regex expressions is used to evaluate if database is valid
@@ -1137,8 +1138,7 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
     // Get filter enabled flag, if not present, then disabled by default
     public boolean getSourceFilterEnabledFlag() {
         boolean sourceFilterFlag = atlasProperties.getBoolean(HOOK_HIVE_FILTER_ENABLED_FLAG, false);
-        LOG.info("HiveHook: Source flag filter set to: {}", sourceFilterFlag);
-        LOG.debug("HiveHook: AtlasProperties set to: " + atlasProperties.toString());
+        LOG.debug("Source flag filter set to: {} for Atlas Hive Hook", sourceFilterFlag);
         return sourceFilterFlag;
     }
 
