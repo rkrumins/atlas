@@ -53,6 +53,7 @@ public class HadoopFileClient implements FilterFileClient {
 //        return conf;
 //    }
 
+
     @Override
     public List<String> getValidSources() {
         LOG.debug("HADOOP_CONF_DIR value is set to " + HADOOP_CONF_DIR);
@@ -64,30 +65,27 @@ public class HadoopFileClient implements FilterFileClient {
         LOG.debug(conf.toString());
 
         List<String> validEntitiesListFromFile = null;
-        try {
-            // Get the HDFS filesystem
-            FileSystem fs = FileSystem.get(conf);
 
+        Path hdfsFilterPath = FilterUtils.getFullHdfsPath(filterFileLocation, filterFileName);
+
+        try (
+                FileSystem fs = FileSystem.get(conf);
+                FSDataInputStream inputStream = fs.open(hdfsFilterPath)
+        ) {
             LOG.debug("Reading file from hdfs");
-
-            String fullPathString = FilterUtils.constructValidPath(filterFileLocation, filterFileName);
-            Path hdfsPath = new Path(fullPathString);
-            LOG.info("Full path on HDFS set to for Atlas Hive Hook filter file {}", hdfsPath.toString());
-
-            //Init input stream
-            FSDataInputStream inputStream = fs.open(hdfsPath);
+            LOG.info("Full path on HDFS set to for Atlas Hive Hook filter file {}", hdfsFilterPath.toString());
 
             validEntitiesListFromFile = IOUtils.readLines(inputStream, StandardCharsets.UTF_8);
+
             LOG.debug("Loaded filter file for Atlas Hive Hook from HDFS with {} items in valid entities list", validEntitiesListFromFile.size());
 
-            inputStream.close();
-            fs.close();
         } catch (IOException e) {
             LOG.error("Failed to load file from HDFS at this path {}/{}", filterFileLocation, filterFileName);
             e.printStackTrace();
         }
 
         if (validEntitiesListFromFile != null) {
+            FilterUtils.trimWhitespacesInList(validEntitiesListFromFile);
             LOG.debug("Valid entities list size " + validEntitiesListFromFile.size());
             LOG.debug("Valid entities list contents below: ");
             LOG.debug(Arrays.toString(validEntitiesListFromFile.toArray()));

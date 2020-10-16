@@ -18,11 +18,13 @@
 package org.apache.atlas.hive.filter;
 
 import org.apache.commons.io.FilenameUtils;
+import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Set;
 
 /**
@@ -42,4 +44,20 @@ public final class FilterUtils {
         return fullFilterFilePathString;
     }
 
+    public static List<String> trimWhitespacesInList(List<String> list) {
+        // Remove any leading or following whitespace characters
+        ListIterator<String> iterator = list.listIterator();
+
+        while (iterator.hasNext()) {
+            String s = iterator.next();
+            iterator.set(s.trim());
+        }
+
+        return list;
+    }
+
+    public static Path getFullHdfsPath(String basePath, String fileName) {
+        String fullPathString = FilterUtils.constructValidPath(basePath, fileName);
+        return new Path(fullPathString);
+    }
 }
