@@ -44,13 +44,17 @@ public final class FilterUtils {
         return fullFilterFilePathString;
     }
 
-    public static List<String> trimWhitespacesInList(List<String> list) {
+    public static List<String> trimWhitespacesAndRemoveEmptyItemsInList(List<String> list) {
         // Remove any leading or following whitespace characters
         ListIterator<String> iterator = list.listIterator();
 
         while (iterator.hasNext()) {
             String s = iterator.next();
-            iterator.set(s.trim());
+            if (s == null || s.isEmpty()) {
+                iterator.remove();
+            } else {
+                iterator.set(s.trim());
+            }
         }
 
         return list;

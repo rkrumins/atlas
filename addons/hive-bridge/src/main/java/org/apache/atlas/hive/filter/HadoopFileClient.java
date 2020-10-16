@@ -80,12 +80,12 @@ public class HadoopFileClient implements FilterFileClient {
             LOG.debug("Loaded filter file for Atlas Hive Hook from HDFS with {} items in valid entities list", validEntitiesListFromFile.size());
 
         } catch (IOException e) {
+            LOG.error("IOException occurred whilst loading filter file from HDFS");
             LOG.error("Failed to load file from HDFS at this path {}/{}", filterFileLocation, filterFileName);
-            e.printStackTrace();
         }
 
         if (validEntitiesListFromFile != null) {
-            FilterUtils.trimWhitespacesInList(validEntitiesListFromFile);
+            FilterUtils.trimWhitespacesAndRemoveEmptyItemsInList(validEntitiesListFromFile);
             LOG.debug("Valid entities list size " + validEntitiesListFromFile.size());
             LOG.debug("Valid entities list contents below: ");
             LOG.debug(Arrays.toString(validEntitiesListFromFile.toArray()));

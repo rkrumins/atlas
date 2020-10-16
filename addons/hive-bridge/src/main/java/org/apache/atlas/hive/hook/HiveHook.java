@@ -173,17 +173,17 @@ public class HiveHook extends AtlasHook implements ExecuteWithHookContext {
 
         List<String> validSourcesPatternList = filterFileClient.getValidSources();
         LOG.debug("Valid entity list for Atlas Hive Hook: {}", Arrays.toString(validSourcesPatternList.toArray()));
+        Set<String> validSourceDatabasesSet = FilterUtils.getValidEntitySetFromList(validSourcesPatternList);
+        LOG.info("Valid entity set for Atlas Hive Hook: {}", Arrays.toString(validSourcesPatternList.toArray()));
 
         if (patternMatchFlag) {
             // This loads the behaviour where list of Regex expressions is used to evaluate if database is valid
             // based on naming pattern, for example if my_db follows the given pattern ([a-z]{2,})_[a-z]{2,}
             LOG.info("Pattern matching filter strategy is loaded for Atlas Hive Hook");
-            filterOperationContext = new FilterOperationContext(new PatternFilterOperation(validSourcesPatternList));
+            filterOperationContext = new FilterOperationContext(new PatternFilterOperation(validSourceDatabasesSet));
         } else {
             // This loads the behaviour where list of source databases is used, thus each database must be defined
             // before and must match as is, for example my_db must be defined in the valid sources list
-            Set<String> validSourceDatabasesSet = FilterUtils.getValidEntitySetFromList(validSourcesPatternList);
-            LOG.info("Valid entity set for Atlas Hive Hook: {}", Arrays.toString(validSourcesPatternList.toArray()));
             filterOperationContext = new FilterOperationContext(new SourcesSetOperation((validSourceDatabasesSet)));
         }
 
