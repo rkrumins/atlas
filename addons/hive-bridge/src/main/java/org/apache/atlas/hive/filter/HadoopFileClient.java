@@ -53,7 +53,6 @@ public class HadoopFileClient implements FilterFileClient {
 //        return conf;
 //    }
 
-
     @Override
     public List<String> getValidSources() {
         LOG.debug("HADOOP_CONF_DIR value is set to " + HADOOP_CONF_DIR);
@@ -77,7 +76,7 @@ public class HadoopFileClient implements FilterFileClient {
 
             validEntitiesListFromFile = IOUtils.readLines(inputStream, StandardCharsets.UTF_8);
 
-            LOG.debug("Loaded filter file for Atlas Hive Hook from HDFS with {} items in valid entities list", validEntitiesListFromFile.size());
+            LOG.info("Loaded filter file for Atlas Hive Hook from HDFS with {} items in valid entities list", validEntitiesListFromFile.size());
 
         } catch (IOException e) {
             LOG.error("IOException occurred whilst loading filter file from HDFS");
@@ -85,14 +84,20 @@ public class HadoopFileClient implements FilterFileClient {
         }
 
         if (validEntitiesListFromFile != null) {
-            FilterUtils.trimWhitespacesAndRemoveEmptyItemsInList(validEntitiesListFromFile);
+            List<String> validEntityListPostCleanup = FilterUtils.trimWhitespacesAndRemoveEmptyItemsInList(validEntitiesListFromFile);
+            LOG.info("Post clean-up filter file for Atlas Hive Hook contains {} items in valid entities list", validEntitiesListFromFile.size());
             LOG.debug("Valid entities list size " + validEntitiesListFromFile.size());
             LOG.debug("Valid entities list contents below: ");
             LOG.debug(Arrays.toString(validEntitiesListFromFile.toArray()));
+            // To do: Add explicit check for when this is returned as null
+            return validEntityListPostCleanup;
         } else {
             LOG.error("List is empty for valid entities");
+            LOG.error("Could not construct list of valid entities");
         }
 
+        // List returned is empty
         return validEntitiesListFromFile;
+
     }
 }

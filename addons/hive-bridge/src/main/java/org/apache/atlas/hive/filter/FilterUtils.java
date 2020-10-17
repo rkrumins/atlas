@@ -50,7 +50,7 @@ public final class FilterUtils {
 
         while (iterator.hasNext()) {
             String s = iterator.next();
-            if (s == null || s.isEmpty()) {
+            if (s == null || s.isEmpty() || s.trim().length() < 1) {
                 iterator.remove();
             } else {
                 iterator.set(s.trim());
